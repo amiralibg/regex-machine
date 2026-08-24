@@ -52,3 +52,5 @@ export function exec(
 }
 
 export { compileRegex as compile };
+export { analyzeReDoS } from './redos';
+export type { ReDoSFinding } from './redos';

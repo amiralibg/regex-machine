@@ -1,21 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import { buildDfa, compileRegex, exec, isRegularNfa } from 'engine';
+import { analyzeReDoS, buildDfa, compileRegex, exec, isRegularNfa } from 'engine';
 import type { RegexSyntaxError, Span, UnsupportedSyntaxError } from 'engine';
 import { dfaToGraph, nfaToGraph } from './lib/machineGraph';
 import { edgeIdLookup, playbackAt } from './lib/playback';
+import { growthFactor, measureGrowth } from './lib/growth';
+import type { GrowthResult } from './lib/growth';
+import { EXAMPLES } from './lib/examples';
+import { readPermalink, writePermalink } from './lib/permalink';
+import type { PermalinkView } from './lib/permalink';
 import { HighlightedGraph } from './components/HighlightedGraph';
 import { PatternStrip } from './components/PatternStrip';
 import { InputStrip } from './components/InputStrip';
 import { PlaybackControls } from './components/PlaybackControls';
+import { GrowthChart } from './components/GrowthChart';
 
-const EXAMPLES: Array<{ label: string; pattern: string; flags?: string }> = [
-  { label: 'alternation order', pattern: '(a|ab)+c' },
-  { label: 'empty-loop quirk', pattern: '(a*)*b' },
-  { label: 'nested quantifier', pattern: '((a{0,2}){0,2}){0,2}', flags: '' },
-  { label: 'lookbehind', pattern: '(?<=@)\\w+' },
-  { label: 'backref', pattern: '(\\w+) \\1' },
-  { label: 'lazy vs greedy', pattern: '<.+?>', flags: '' },
-];
+const initial = readPermalink();
 
 function errMessage(e: unknown): string {
   const name = (e as InstanceType<typeof RegexSyntaxError> | InstanceType<typeof UnsupportedSyntaxError>)?.name;
@@ -23,16 +22,23 @@ function errMessage(e: unknown): string {
 }
 
 export function App() {
-  const [pattern, setPattern] = useState('(a|ab)+c');
-  const [flags, setFlags] = useState('');
-  const [input, setInput] = useState('ababc');
-  const [view, setView] = useState<'nfa' | 'dfa'>('nfa');
+  const [pattern, setPattern] = useState(initial.pattern ?? '(a|ab)+c');
+  const [flags, setFlags] = useState(initial.flags ?? '');
+  const [input, setInput] = useState(initial.input ?? 'ababc');
+  const [view, setView] = useState<PermalinkView>(initial.view ?? 'nfa');
   const [openGate, setOpenGate] = useState<number | null>(null);
   const [hoverChar, setHoverChar] = useState<number | null>(null);
   const [stripHighlight, setStripHighlight] = useState<Span[] | null>(null);
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speedIdx, setSpeedIdx] = useState(1);
+  const [growth, setGrowth] = useState<GrowthResult | null>(null);
+  const [measuring, setMeasuring] = useState(false);
+
+  // permalink
+  useEffect(() => {
+    writePermalink({ pattern, flags, input, view });
+  }, [pattern, flags, input, view]);
 
   const compiled = useMemo(() => {
     try {
@@ -43,6 +49,7 @@ export function App() {
   }, [pattern, flags]);
 
   const regular = compiled.ok ? isRegularNfa(compiled.value.nfa) : true;
+  const findings = useMemo(() => (compiled.ok ? analyzeReDoS(compiled.value.ast) : []), [compiled]);
 
   const nfaGraph = useMemo(() => (compiled.ok ? nfaToGraph(compiled.value.nfa) : null), [compiled]);
   const dfaGraph = useMemo(
@@ -56,7 +63,6 @@ export function App() {
     return r;
   }, [compiled, input]);
 
-  // full trace for playback — only worth it for reasonable trace sizes
   const traced = useMemo(() => {
     if (!compiled.ok || input === '') return null;
     const r = exec(compiled.value, input, 0, { trace: true });
@@ -71,21 +77,32 @@ export function App() {
     [traced, cursor, lookup, nfaViz],
   );
 
-  // a stale gate/cursor means nothing once the machine or input changes
   useEffect(() => {
     setOpenGate(null);
     setHoverChar(null);
     setStripHighlight(null);
     setCursor(0);
     setPlaying(false);
+    setGrowth(null);
   }, [compiled, input]);
+
+  const runGrowth = async (): Promise<void> => {
+    if (!compiled.ok) return;
+    setMeasuring(true);
+    setGrowth(null);
+    const result = await measureGrowth(compiled.value, (n) => 'a'.repeat(n) + 'b', 36);
+    setGrowth(result);
+    setMeasuring(false);
+  };
+
+  const factor = growth ? growthFactor(growth.points) : null;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-4 p-6">
       <header className="flex items-baseline justify-between">
         <h1 className="font-mono text-lg font-semibold tracking-tight">regex-machine</h1>
         <span className="text-xs" style={{ color: 'var(--color-faint)' }}>
-          phase 2 · graph rendering
+          phase 5 · redos analysis
         </span>
       </header>
 
@@ -137,36 +154,88 @@ export function App() {
         {compiled.ok && (
           <PatternStrip pattern={pattern} highlight={stripHighlight} onHoverChar={setHoverChar} />
         )}
-        <div className="flex flex-wrap gap-1.5">
+      </div>
+
+      {/* ReDoS findings */}
+      {findings.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg p-4" style={{ border: '1px solid rgba(242,178,62,0.4)', background: 'rgba(242,178,62,0.06)' }}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--color-accent)' }}>
+              ⚠ potential exponential backtracking
+            </span>
+            {compiled.ok && (
+              <button
+                onClick={() => void runGrowth()}
+                disabled={measuring}
+                className="rounded px-3 py-1 font-mono text-xs transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{ border: '1px solid var(--color-accent)', color: 'var(--color-accent)' }}
+              >
+                {measuring ? 'measuring…' : growth ? 're-run' : 'prove it →'}
+              </button>
+            )}
+          </div>
+          {findings.map((f, i) => (
+            <button
+              key={i}
+              onClick={() => setStripHighlight([f.span])}
+              className="rounded px-2 py-1.5 text-left font-mono text-[11px] leading-relaxed transition-colors hover:bg-white/5"
+              style={{ color: 'var(--color-dim)' }}
+            >
+              <span style={{ color: 'var(--color-accent)' }}>{JSON.stringify(pattern.slice(f.span.start, f.span.end))}</span>{' '}
+              — {f.message}{' '}
+              <span className="opacity-60">(click to locate)</span>
+            </button>
+          ))}
+          {growth && (
+            <div className="mt-1 flex flex-col gap-1">
+              <GrowthChart points={growth.points} inputDesc={`'a'·n + 'b'`} />
+              <p className="text-[11px]" style={{ color: 'var(--color-dim)' }}>
+                {factor !== null
+                  ? `each +4 input chars multiplies the work by ≈${factor.toFixed(1)}× — that straight line on a log scale IS exponential backtracking.`
+                  : 'the step limit was hit almost immediately — growth beyond this point is unbounded.'}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* examples */}
+      <details className="rounded-lg px-4 py-3" style={{ border: '1px solid var(--color-hairline)', background: 'var(--color-panel)' }}>
+        <summary className="cursor-pointer font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--color-dim)' }}>
+          example library · {EXAMPLES.length} patterns
+        </summary>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {EXAMPLES.map((ex) => (
             <button
-              key={ex.label}
+              key={ex.title}
               onClick={() => {
                 setPattern(ex.pattern);
                 setFlags(ex.flags ?? '');
-                setOpenGate(null);
+                setInput(ex.input);
+                setView('nfa');
               }}
-              className="rounded-full px-2.5 py-1 text-xs transition-colors hover:brightness-125"
-              style={{
-                border: '1px solid var(--color-hairline)',
-                color: 'var(--color-dim)',
-                background: ex.pattern === pattern ? 'var(--color-raise)' : 'transparent',
-                ...(ex.pattern === pattern ? { borderColor: 'var(--color-accent)' } : {}),
-              }}
+              className="rounded-md p-2.5 text-left transition-colors hover:bg-white/5"
+              style={{ border: '1px solid var(--color-hairline)' }}
             >
-              {ex.label}
+              <div className="font-mono text-xs" style={{ color: ex.title.startsWith('catastrophic') ? 'var(--color-gate)' : 'var(--color-accent)' }}>
+                {ex.title}
+              </div>
+              <div className="mt-1 truncate font-mono text-[11px]" style={{ color: 'var(--color-dim)' }}>
+                /{ex.pattern}/{ex.flags ?? ''} vs {JSON.stringify(ex.input.slice(0, 18))}
+                {ex.input.length > 18 ? '…' : ''}
+              </div>
+              <div className="mt-1 text-[11px] leading-snug" style={{ color: 'var(--color-faint)' }}>
+                {ex.note}
+              </div>
             </button>
           ))}
         </div>
-      </div>
+      </details>
 
       {/* playback (NFA view only) */}
       {compiled.ok && view === 'nfa' && input !== '' && nfaViz && traced && pb && (
         <div className="flex flex-col gap-3">
-          <div
-            className="rounded-lg px-4 py-2"
-            style={{ border: '1px solid var(--color-hairline)', background: 'var(--color-panel)' }}
-          >
+          <div className="rounded-lg px-4 py-2" style={{ border: '1px solid var(--color-hairline)', background: 'var(--color-panel)' }}>
             <div className="mb-1 text-[10px] uppercase tracking-widest" style={{ color: 'var(--color-faint)' }}>
               input · playhead
             </div>
@@ -219,9 +288,9 @@ export function App() {
         </div>
         {!regular && (
           <p className="text-xs leading-relaxed" style={{ color: 'var(--color-dim)' }}>
-            This pattern uses backreferences or lookaround — features of a{' '}
-            <em>backtracking</em> matcher, not a regular language. No DFA can express them; the NFA
-            shows them as annotated special edges and gate chips instead.
+            This pattern uses backreferences or lookaround — features of a <em>backtracking</em> matcher, not a
+            regular language. No DFA can express them; the NFA shows them as annotated special edges and gate chips
+            instead.
           </p>
         )}
       </div>
@@ -270,8 +339,8 @@ export function App() {
           <LegendSwatch kind="gate" label="gate (?=…)" />
         </div>
         <p className="text-[11px]" style={{ color: 'var(--color-faint)' }}>
-          hover any edge in the machine to light up the pattern text that built it — hover the
-          pattern to light up every edge it produced
+          hover any edge in the machine to light up the pattern text that built it — hover the pattern to light up
+          every edge it produced · the URL fragment is your permalink
         </p>
       </footer>
     </div>
