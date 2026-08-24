@@ -33,11 +33,11 @@ describe('course content integrity', () => {
 
   it('has five modules covering the curriculum', () => {
     expect(COURSE.map((m) => m.title)).toEqual([
-      'Foundations & Syntax',
-      'Groups, Quantifiers, Captures',
-      'Inside the Engine',
-      'Automata Theory & Optimizations',
-      'Performance Engineering & ReDoS',
+      'Foundations',
+      'Groups, quantifiers, captures',
+      'Inside the engine',
+      'Automata theory & optimizations',
+      'Performance & ReDoS',
     ]);
     const lessons = COURSE.flatMap((m) => m.lessons);
     expect(lessons.length).toBe(18);

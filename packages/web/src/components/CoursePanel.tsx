@@ -39,55 +39,75 @@ export function CoursePanel({
 
   const completeLesson = (id: string): void => {
     setDone((prev) => new Set(prev).add(id));
+    // auto-advance to the next unfinished lesson
+    const flat = COURSE.flatMap((m) => m.lessons);
+    const idx = flat.findIndex((l) => l.id === id);
+    for (let k = idx + 1; k < flat.length; k++) {
+      if (!done.has(flat[k]!.id)) {
+        setOpenLessonId(flat[k]!.id);
+        return;
+      }
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={onClose}>
       <aside
-        className="flex h-full w-full max-w-xl flex-col overflow-hidden"
+        className="flex h-full w-full max-w-2xl flex-col overflow-hidden"
         style={{ background: 'var(--color-canvas)', borderLeft: '1px solid var(--color-hairline)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* header */}
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--color-hairline)' }}>
-          <div>
-            <h2 className="font-mono text-sm font-semibold tracking-tight">learn regex — by seeing it work</h2>
-            <p className="mt-0.5 text-[11px]" style={{ color: 'var(--color-faint)' }}>
-              {done.size}/{total} lessons complete · exercises load into the playground
-            </p>
+        <div className="px-8 pt-7 pb-5" style={{ borderBottom: '1px solid var(--color-hairline)' }}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">Learn regex</h2>
+              <p className="mt-1 text-[13px] leading-snug" style={{ color: 'var(--color-body)' }}>
+                Five modules. Every lesson ends in the playground, because reading about backtracking is nothing like watching it rewind.
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded px-2 py-1 font-mono text-xs hover:bg-white/10"
+              style={{ color: 'var(--color-faint)' }}
+              aria-label="close course"
+            >
+              ✕
+            </button>
           </div>
-          <button onClick={onClose} className="rounded px-2 py-1 font-mono text-xs hover:bg-white/10" style={{ color: 'var(--color-dim)' }}>
-            ✕
-          </button>
-        </div>
-
-        {/* overall progress bar */}
-        <div className="h-1 w-full" style={{ background: 'var(--color-panel)' }}>
-          <div
-            className="h-full transition-all duration-300"
-            style={{ width: `${(done.size / total) * 100}%`, background: 'var(--color-accent)' }}
-          />
+          <div className="mt-4 flex items-center gap-3">
+            <div className="h-1 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--color-panel)' }}>
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${(done.size / total) * 100}%`, background: 'var(--color-accent)' }}
+              />
+            </div>
+            <span className="font-mono text-[11px] tabular-nums" style={{ color: 'var(--color-faint)' }}>
+              {done.size}/{total}
+            </span>
+          </div>
         </div>
 
         {/* modules */}
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto px-8 py-6">
           {COURSE.map((mod, mi) => (
-            <section key={mod.id} className="mb-6">
-              <div className="mb-1 flex items-baseline gap-2">
-                <span className="font-mono text-[11px]" style={{ color: 'var(--color-accent)' }}>
-                  MODULE {mi + 1}
-                </span>
-                <h3 className="text-sm font-semibold">{mod.title}</h3>
-              </div>
-              <p className="mb-3 text-[11px] leading-snug" style={{ color: 'var(--color-faint)' }}>
-                {mod.blurb}
-              </p>
+            <section key={mod.id} className="mb-10">
+              <header className="mb-4">
+                <div className="font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-accent)' }}>
+                  module {mi + 1} · {mod.lessons.length} lessons
+                </div>
+                <h3 className="mt-1 text-[15px] font-semibold tracking-tight">{mod.title}</h3>
+                <p className="mt-1 text-[12px]" style={{ color: 'var(--color-faint)' }}>
+                  {mod.blurb}
+                </p>
+              </header>
 
-              <div className="flex flex-col gap-2">
-                {mod.lessons.map((lesson) => (
+              <div className="flex flex-col">
+                {mod.lessons.map((lesson, li) => (
                   <LessonCard
                     key={lesson.id}
                     lesson={lesson}
+                    number={`${mi + 1}.${li + 1}`}
                     done={done.has(lesson.id)}
                     open={openLessonId === lesson.id}
                     onToggle={() => setOpenLessonId(openLessonId === lesson.id ? null : lesson.id)}
@@ -98,6 +118,10 @@ export function CoursePanel({
               </div>
             </section>
           ))}
+
+          <p className="pb-4 text-center text-[11px]" style={{ color: 'var(--color-faint)' }}>
+            That's the whole course. Break patterns on purpose now — the machine will show you what happens.
+          </p>
         </div>
       </aside>
     </div>
@@ -106,6 +130,7 @@ export function CoursePanel({
 
 function LessonCard({
   lesson,
+  number,
   done,
   open,
   onToggle,
@@ -113,6 +138,7 @@ function LessonCard({
   onLoadExercise,
 }: {
   lesson: Lesson;
+  number: string;
   done: boolean;
   open: boolean;
   onToggle: () => void;
@@ -121,53 +147,78 @@ function LessonCard({
 }) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const allCorrect = lesson.quiz.every((q, i) => answers[i] === q.answer);
-  const canComplete = allCorrect && !done;
 
   return (
-    <div className="rounded-lg" style={{ border: '1px solid var(--color-hairline)', background: open ? 'var(--color-panel)' : 'transparent' }}>
-      <button onClick={onToggle} className="flex w-full items-center gap-2 px-3 py-2 text-left">
+    <article
+      className="rounded-xl transition-colors"
+      style={{
+        border: `1px solid ${open ? 'rgba(242,178,62,0.35)' : 'var(--color-hairline)'}`,
+        background: open ? 'var(--color-panel)' : 'transparent',
+        marginBottom: 8,
+      }}
+    >
+      <button onClick={onToggle} className="flex w-full items-center gap-3 px-4 py-3 text-left">
         <span
-          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full font-mono text-[9px]"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-[9px]"
           style={{
             border: `1px solid ${done ? 'var(--color-accent)' : 'var(--color-hairline)'}`,
-            color: done ? 'var(--color-accent)' : 'var(--color-faint)',
+            color: done ? 'var(--color-accent)' : 'transparent',
+            background: done ? 'rgba(242,178,62,0.12)' : 'transparent',
           }}
         >
-          {done ? '✓' : ''}
+          ✓
         </span>
-        <span className="flex-1 text-xs" style={{ color: open ? 'var(--color-ink)' : 'var(--color-dim)' }}>
+        <span className="font-mono text-[10px] tabular-nums" style={{ color: 'var(--color-faint)' }}>
+          {number}
+        </span>
+        <span
+          className="flex-1 text-[13px]"
+          style={{ color: open ? 'var(--color-ink)' : 'var(--color-dim)', fontWeight: open ? 600 : 400 }}
+        >
           {lesson.title}
         </span>
-        <span style={{ color: 'var(--color-faint)', fontSize: 10 }}>{open ? '▾' : '▸'}</span>
+        <span aria-hidden style={{ color: 'var(--color-faint)', fontSize: 10 }}>
+          {open ? '▾' : '▸'}
+        </span>
       </button>
 
       {open && (
-        <div className="flex flex-col gap-3 px-3 pb-3">
-          <p className="text-[11px] leading-relaxed" style={{ color: 'var(--color-accent)' }}>
+        <div className="mx-auto flex max-w-[54ch] flex-col gap-5 px-6 pb-7 pt-1">
+          {/* objective as a lead */}
+          <p
+            className="pl-3 text-[13px] leading-relaxed"
+            style={{ borderLeft: '2px solid var(--color-accent)', color: 'var(--color-ink)' }}
+          >
             {lesson.objective}
           </p>
 
-          {lesson.concepts.map((c, i) => (
-            <p key={i} className="text-[12px] leading-relaxed" style={{ color: 'var(--color-dim)' }}>
-              {c}
-            </p>
-          ))}
+          {/* concepts as prose */}
+          <div className="flex flex-col gap-3.5">
+            {lesson.concepts.map((c, i) => (
+              <p key={i} className="text-[13px] leading-[1.75]" style={{ color: 'var(--color-body)' }}>
+                {c}
+              </p>
+            ))}
+          </div>
 
           {lesson.exercise && (
-            <div className="rounded-md p-3" style={{ background: 'var(--color-canvas)', border: '1px solid var(--color-hairline)' }}>
-              <div className="mb-1 font-mono text-[10px] uppercase tracking-widest" style={{ color: 'var(--color-accent)' }}>
-                exercise · hands-on
+            <div className="rounded-lg p-4" style={{ background: 'var(--color-canvas)', borderLeft: '2px solid var(--color-capture)' }}>
+              <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-capture)' }}>
+                hands-on
               </div>
-              <code className="block break-all font-mono text-[11px]" style={{ color: 'var(--color-ink)' }}>
-                /{lesson.exercise.pattern}/{lesson.exercise.flags ?? ''} vs {JSON.stringify(lesson.exercise.input)}
+              <code
+                className="block break-all rounded px-2 py-1.5 font-mono text-[12px]"
+                style={{ background: 'var(--color-panel)', color: 'var(--color-ink)' }}
+              >
+                /{lesson.exercise.pattern}/{lesson.exercise.flags ?? ''} · {JSON.stringify(lesson.exercise.input)}
               </code>
-              <p className="mt-2 text-[11px] leading-relaxed" style={{ color: 'var(--color-dim)' }}>
+              <p className="mt-3 text-[13px] leading-relaxed" style={{ color: 'var(--color-body)' }}>
                 {lesson.exercise.watch}
               </p>
               <button
                 onClick={() => onLoadExercise(lesson.exercise!)}
-                className="mt-2 rounded px-3 py-1 font-mono text-[11px] transition-opacity hover:opacity-80"
-                style={{ border: '1px solid var(--color-accent)', color: 'var(--color-accent)' }}
+                className="mt-3 rounded-md px-3.5 py-1.5 font-mono text-[12px] font-semibold transition-opacity hover:opacity-85"
+                style={{ background: 'var(--color-accent)', color: '#15171e' }}
               >
                 load in playground →
               </button>
@@ -175,37 +226,37 @@ function LessonCard({
           )}
 
           {/* quiz */}
-          <div className="flex flex-col gap-2">
-            <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: 'var(--color-faint)' }}>
-              check yourself
-            </div>
+          <div className="flex flex-col gap-4">
             {lesson.quiz.map((q, qi) => (
               <div key={qi}>
-                <p className="mb-1 text-[11px]" style={{ color: 'var(--color-ink)' }}>
-                  {qi + 1}. {q.q}
+                <p className="mb-2 text-[13px] font-medium" style={{ color: 'var(--color-ink)' }}>
+                  {q.q}
                 </p>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1.5">
                   {q.options.map((opt, oi) => {
                     const chosen = answers[qi];
-                    const isChosen = chosen === oi;
                     const revealed = chosen !== undefined;
+                    const isChosen = chosen === oi;
                     const correct = oi === q.answer;
                     let bg = 'transparent';
-                    let color: string = 'var(--color-dim)';
+                    let color: string = 'var(--color-body)';
+                    let borderColor: string = 'var(--color-hairline)';
                     if (revealed && correct) {
-                      bg = 'rgba(242,178,62,0.14)';
+                      bg = 'rgba(242,178,62,0.12)';
                       color = 'var(--color-accent)';
+                      borderColor = 'rgba(242,178,62,0.45)';
                     } else if (isChosen && !correct) {
-                      bg = 'rgba(239,127,127,0.12)';
+                      bg = 'rgba(239,127,127,0.1)';
                       color = '#ef7f7f';
+                      borderColor = 'rgba(239,127,127,0.4)';
                     }
                     return (
                       <button
                         key={oi}
                         onClick={() => setAnswers((a) => ({ ...a, [qi]: oi }))}
                         disabled={revealed && isChosen}
-                        className="rounded px-2 py-1 text-left font-mono text-[11px] transition-colors"
-                        style={{ background: bg, color, border: '1px solid var(--color-hairline)' }}
+                        className="rounded-lg px-3 py-2 text-left font-mono text-[12px] transition-colors hover:bg-white/5"
+                        style={{ background: bg, color, border: `1px solid ${borderColor}` }}
                       >
                         {revealed && correct ? '✓ ' : isChosen ? '✗ ' : ''}
                         {opt}
@@ -218,18 +269,21 @@ function LessonCard({
           </div>
 
           <button
-            onClick={() => {
-              onComplete();
-              setAnswers({});
-            }}
-            disabled={!canComplete}
-            className="self-start rounded px-3 py-1 font-mono text-[11px] transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ border: '1px solid var(--color-hairline)', color: done ? 'var(--color-accent)' : 'var(--color-dim)' }}
+            onClick={onComplete}
+            disabled={(!allCorrect && !done)}
+            className="self-start rounded-lg px-3.5 py-1.5 font-mono text-[12px] transition-opacity disabled:cursor-not-allowed disabled:opacity-40 hover:opacity-80"
+            style={
+              done
+                ? { border: '1px solid rgba(242,178,62,0.45)', color: 'var(--color-accent)', background: 'rgba(242,178,62,0.08)' }
+                : allCorrect
+                  ? { border: '1px solid var(--color-accent)', color: 'var(--color-accent)' }
+                  : { border: '1px solid var(--color-hairline)', color: 'var(--color-faint)' }
+            }
           >
-            {done ? '✓ completed' : allCorrect ? 'mark complete' : 'answer correctly to complete'}
+            {done ? '✓ completed' : allCorrect ? 'mark complete' : 'answer correctly to continue'}
           </button>
         </div>
       )}
-    </div>
+    </article>
   );
 }
