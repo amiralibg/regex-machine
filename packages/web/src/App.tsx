@@ -190,10 +190,10 @@ export function App() {
             key="findings"
             className="flex flex-col gap-2 rounded-lg p-4"
             style={{ border: '1px solid rgba(242,178,62,0.4)', background: 'rgba(242,178,62,0.06)' }}
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
+            initial={{ opacity: 0, y: -6, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -6, filter: 'blur(4px)' }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
           >
           <div className="flex items-center justify-between gap-2">
             <span className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--color-accent)' }}>
@@ -225,9 +225,9 @@ export function App() {
           {growth && (
             <motion.div
               className="mt-1 flex flex-col gap-1"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
+              initial={{ opacity: 0, y: 8, filter: 'blur(5px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ duration: 0.45, ease: 'easeOut' }}
             >
               <GrowthChart points={growth.points} inputDesc={`'a'·n + 'b'`} />
               <p className="text-[11px]" style={{ color: 'var(--color-dim)' }}>
@@ -387,6 +387,7 @@ export function App() {
               title={`DFA · /${pattern}/${flags} · ${dfaGraph.nodes.length} states`}
               hoverChar={hoverChar}
               onSpans={setStripHighlight}
+              preset="roomy"
             />
           ) : null}
         </>

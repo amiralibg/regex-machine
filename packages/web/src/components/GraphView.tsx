@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { MachineGraph, VizEdgeKind } from '../lib/machineGraph';
 import { layoutMachine } from '../lib/layout';
-import type { LayoutResult } from '../lib/layout';
+import type { LayoutPreset, LayoutResult } from '../lib/layout';
 
 interface EdgeStyle {
   stroke: string;
@@ -93,6 +93,7 @@ export function GraphView({
   onGateClick,
   onHover,
   activeEdgeIds,
+  preset = 'default',
 }: {
   graph: MachineGraph;
   title?: string;
@@ -101,6 +102,8 @@ export function GraphView({
   onHover?: (hover: { kind: 'edge' | 'node'; id: string } | null) => void;
   /** edges that should glow (from either direction of highlighting) */
   activeEdgeIds?: Set<string> | null;
+  /** 'roomy' gives dense machines (DFAs) extra spacing */
+  preset?: LayoutPreset;
 }) {
   // layout result stored TOGETHER WITH the graph it was computed from:
   // on keystrokes React re-renders with a new graph before effects run,
@@ -112,7 +115,7 @@ export function GraphView({
     let cancelled = false;
     setLaid(null);
     setFailed(null);
-    layoutMachine(graph)
+    layoutMachine(graph, preset)
       .then((r) => {
         if (!cancelled) setLaid({ graph, data: r });
       })
@@ -123,7 +126,7 @@ export function GraphView({
     return () => {
       cancelled = true;
     };
-  }, [graph]);
+  }, [graph, preset]);
 
   if (failed !== null) {
     return (
@@ -136,7 +139,10 @@ export function GraphView({
   const layout = laid !== null && laid.graph === graph ? laid.data : null;
   if (!layout) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm" style={{ color: 'var(--color-faint)' }}>
+      <div
+        className="flex h-40 animate-pulse items-center justify-center text-sm"
+        style={{ color: 'var(--color-faint)', border: '1px solid var(--color-hairline)', background: 'var(--color-panel)', borderRadius: 8 }}
+      >
         laying out…
       </div>
     );
@@ -169,9 +175,9 @@ export function GraphView({
         style={{ maxWidth: layout.width, minWidth: Math.min(layout.width, 1000), display: 'block' }}
       >
         <motion.g
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.45, ease: 'easeOut' }}
+          initial={{ opacity: 0, filter: 'blur(8px)' }}
+          animate={{ opacity: 1, filter: 'blur(0px)' }}
+          transition={{ duration: 0.55, ease: 'easeOut' }}
         >
         {/* edges */}
         {graph.edges.map((e) => {

@@ -40,6 +40,14 @@ const center = (n: { x: number; y: number }): { x: number; y: number } => ({
   y: n.y + NODE_SIZE / 2,
 });
 
+/** spacing presets: DFAs have many parallel edges between layers and need air */
+export const LAYOUT_PRESETS = {
+  default: { betweenLayers: '72', nodeNode: '44', edgeEdge: '18', edgeNode: '16' },
+  roomy: { betweenLayers: '130', nodeNode: '84', edgeEdge: '34', edgeNode: '30' },
+} as const;
+
+export type LayoutPreset = keyof typeof LAYOUT_PRESETS;
+
 /** pull an endpoint out to the node rim along the segment direction */
 function trimToRim(p: ElkPoint, c: ElkPoint, rim: number): ElkPoint {
   const dx = c.x - p.x;
@@ -48,8 +56,9 @@ function trimToRim(p: ElkPoint, c: ElkPoint, rim: number): ElkPoint {
   return { x: c.x - (dx / len) * rim, y: c.y - (dy / len) * rim };
 }
 
-export async function layoutMachine(graph: MachineGraph): Promise<LayoutResult> {
+export async function layoutMachine(graph: MachineGraph, preset: LayoutPreset = 'default'): Promise<LayoutResult> {
   const routable = graph.edges.filter((e) => !e.selfLoop);
+  const spacing = LAYOUT_PRESETS[preset];
 
   const layout = await elk.layout(
     {
@@ -58,8 +67,10 @@ export async function layoutMachine(graph: MachineGraph): Promise<LayoutResult> 
         'elk.algorithm': 'layered',
         'elk.direction': 'RIGHT',
         'elk.edgeRouting': 'ORTHOGONAL',
-        'elk.layered.spacing.nodeNodeBetweenLayers': '72',
-        'elk.spacing.nodeNode': '44',
+        'elk.layered.spacing.nodeNodeBetweenLayers': spacing.betweenLayers,
+        'elk.spacing.nodeNode': spacing.nodeNode,
+        'elk.spacing.edgeEdge': spacing.edgeEdge,
+        'elk.spacing.edgeNode': spacing.edgeNode,
         // headroom for self-loop arcs + start stubs
         'elk.padding': '[top=72, left=56, bottom=32, right=32]',
       },

@@ -54,12 +54,12 @@ export function CoursePanel({
   return (
     <motion.div
       className="fixed inset-0 z-50 flex justify-end"
-      style={{ background: 'rgba(0,0,0,0.55)' }}
+      style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
       onClick={onClose}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: 0.25 }}
     >
       <motion.aside
         className="flex h-full w-full max-w-2xl flex-col overflow-hidden"

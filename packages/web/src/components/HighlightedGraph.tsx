@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Span } from 'engine';
 import type { MachineGraph } from '../lib/machineGraph';
+import type { LayoutPreset } from '../lib/layout';
 import { spansCover } from '../lib/spans';
 import { GraphView } from './GraphView';
 
@@ -19,6 +20,7 @@ export function HighlightedGraph({
   onGateClick,
   onSpans,
   pinnedIds,
+  preset,
 }: {
   viz: MachineGraph;
   title?: string;
@@ -27,6 +29,8 @@ export function HighlightedGraph({
   onSpans?: (spans: Span[] | null) => void;
   /** externally-driven glow (playback), merged with local hover glow */
   pinnedIds?: Set<string> | null;
+  /** spacing preset forwarded to the layout */
+  preset?: LayoutPreset;
 }) {
   const [selfHover, setSelfHover] = useState<{ kind: 'edge' | 'node'; id: string } | null>(null);
 
@@ -64,6 +68,7 @@ export function HighlightedGraph({
       onGateClick={onGateClick}
       onHover={handleHover}
       activeEdgeIds={glow}
+      preset={preset}
     />
   );
 }
