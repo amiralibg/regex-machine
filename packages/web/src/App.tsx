@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { buildDfa, compileRegex, exec, isRegularNfa } from 'engine';
-import type { RegexSyntaxError, UnsupportedSyntaxError } from 'engine';
+import type { RegexSyntaxError, Span, UnsupportedSyntaxError } from 'engine';
 import { dfaToGraph, nfaToGraph } from './lib/machineGraph';
-import { GraphView } from './components/GraphView';
+import { HighlightedGraph } from './components/HighlightedGraph';
+import { PatternStrip } from './components/PatternStrip';
 
 const EXAMPLES: Array<{ label: string; pattern: string; flags?: string }> = [
   { label: 'alternation order', pattern: '(a|ab)+c' },
@@ -24,6 +25,8 @@ export function App() {
   const [input, setInput] = useState('ababc');
   const [view, setView] = useState<'nfa' | 'dfa'>('nfa');
   const [openGate, setOpenGate] = useState<number | null>(null);
+  const [hoverChar, setHoverChar] = useState<number | null>(null);
+  const [stripHighlight, setStripHighlight] = useState<Span[] | null>(null);
 
   const compiled = useMemo(() => {
     try {
@@ -48,7 +51,11 @@ export function App() {
   }, [compiled, input]);
 
   // a stale gate index means nothing once the machine changes
-  useEffect(() => setOpenGate(null), [compiled]);
+  useEffect(() => {
+    setOpenGate(null);
+    setHoverChar(null);
+    setStripHighlight(null);
+  }, [compiled]);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-4 p-6">
@@ -103,6 +110,9 @@ export function App() {
           <div className="rounded px-3 py-2 font-mono text-xs" style={{ background: 'rgba(239,127,127,0.08)', color: '#ef7f7f', border: '1px solid rgba(239,127,127,0.25)' }}>
             {compiled.error}
           </div>
+        )}
+        {compiled.ok && (
+          <PatternStrip pattern={pattern} highlight={stripHighlight} onHoverChar={setHoverChar} />
         )}
         <div className="flex flex-wrap gap-1.5">
           {EXAMPLES.map((ex) => (
@@ -163,29 +173,48 @@ export function App() {
       {compiled.ok && nfaGraph && (
         <>
           {view === 'nfa' ? (
-            <GraphView graph={nfaGraph} title={`NFA · /${pattern}/${flags}`} onGateClick={setOpenGate} />
+            <HighlightedGraph
+              viz={nfaGraph}
+              title={`NFA · /${pattern}/${flags}`}
+              hoverChar={hoverChar}
+              onGateClick={setOpenGate}
+              onSpans={setStripHighlight}
+            />
           ) : dfaGraph ? (
-            <GraphView graph={dfaGraph} title={`DFA · /${pattern}/${flags} · ${dfaGraph.nodes.length} states`} />
+            <HighlightedGraph
+              viz={dfaGraph}
+              title={`DFA · /${pattern}/${flags} · ${dfaGraph.nodes.length} states`}
+              hoverChar={hoverChar}
+              onSpans={setStripHighlight}
+            />
           ) : null}
         </>
       )}
 
       {/* gate inset */}
       {compiled.ok && openGate !== null && compiled.value.nfa.gates[openGate] && view === 'nfa' && (
-        <GraphView
-          graph={nfaToGraph(compiled.value.nfa.gates[openGate]!.nfa)}
+        <HighlightedGraph
+          viz={nfaToGraph(compiled.value.nfa.gates[openGate]!.nfa)}
           title={`sub-machine · gate #${openGate}`}
+          hoverChar={hoverChar}
+          onSpans={setStripHighlight}
         />
       )}
 
-      <footer className="flex flex-wrap gap-x-4 gap-y-1 pb-4 text-[11px]" style={{ color: 'var(--color-faint)' }}>
-        <LegendSwatch kind="consume" label="consume" />
-        <LegendSwatch kind="epsilon" label="ε (epsilon)" />
-        <LegendSwatch kind="assert" label="assert ^ $ \b" />
-        <LegendSwatch kind="captureOpen" label="capture ( )" />
-        <LegendSwatch kind="loopGuard" label="loop ⟲" />
-        <LegendSwatch kind="backref" label="backref \1" />
-        <LegendSwatch kind="gate" label="gate (?=…)" />
+      <footer className="flex flex-col gap-2 pb-4">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]" style={{ color: 'var(--color-faint)' }}>
+          <LegendSwatch kind="consume" label="consume" />
+          <LegendSwatch kind="epsilon" label="ε (epsilon)" />
+          <LegendSwatch kind="assert" label="assert ^ $ \b" />
+          <LegendSwatch kind="captureOpen" label="capture ( )" />
+          <LegendSwatch kind="loopGuard" label="loop ⟲" />
+          <LegendSwatch kind="backref" label="backref \1" />
+          <LegendSwatch kind="gate" label="gate (?=…)" />
+        </div>
+        <p className="text-[11px]" style={{ color: 'var(--color-faint)' }}>
+          hover any edge in the machine to light up the pattern text that built it — hover the
+          pattern to light up every edge it produced
+        </p>
       </footer>
     </div>
   );

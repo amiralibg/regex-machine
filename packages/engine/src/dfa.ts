@@ -13,7 +13,7 @@
  * `isRegularNfa` to gate the DFA toggle in the UI.
  */
 
-import type { AnchorKind, ClassItem } from './ast';
+import type { AnchorKind, ClassItem, Span } from './ast';
 import { checkAssert, matchConsume } from './nfa';
 import type { ConsumeMatcher, Nfa } from './nfa';
 
@@ -28,6 +28,8 @@ export interface DfaEdge {
   /** structural identity — edges sharing a key came from one symbol class */
   key: string;
   label: string;
+  /** source spans of every NFA transition merged into this edge */
+  spans: Span[];
 }
 
 export interface Dfa {
@@ -130,14 +132,17 @@ type SymTrans = { kind: 'sym'; sym: DfaSym; key: string };
  * Symbol transition out of an NFA node (with its forward target), if any.
  * Epsilon-family transitions (incl. loop guards) return null.
  */
-function symbolOf(tr: Nfa['states'][number][number]): { info: SymTrans; target: number } | null {
+function symbolOf(
+  tr: Nfa['states'][number][number],
+): { info: SymTrans; target: number; span: Span | null } | null {
   switch (tr.kind) {
     case 'consume':
-      return { info: { kind: 'sym', sym: { t: 'consume', matcher: tr.matcher }, key: matcherKey(tr.matcher) }, target: tr.target };
+      return { info: { kind: 'sym', sym: { t: 'consume', matcher: tr.matcher }, key: matcherKey(tr.matcher) }, target: tr.target, span: tr.span };
     case 'assert':
       return {
         info: { kind: 'sym', sym: { t: 'assert', check: tr.check, multiline: tr.multiline }, key: assertKey(tr.check, tr.multiline) },
         target: tr.target,
+        span: tr.span,
       };
     default:
       return null;
@@ -190,7 +195,7 @@ export function buildDfa(nfa: Nfa): Dfa {
     const from = ids.get(closureId(current))!;
 
     // collect symbol moves across the whole closure, unioned per key
-    const moves = new Map<string, { sym: DfaSym; targets: Set<number> }>();
+    const moves = new Map<string, { sym: DfaSym; targets: Set<number>; spans: Span[] }>();
     for (const n of current) {
       for (const tr of nfa.states[n] ?? []) {
         const st = symbolOf(tr);
@@ -198,13 +203,23 @@ export function buildDfa(nfa: Nfa): Dfa {
         const entry = moves.get(st.info.key);
         if (entry) {
           entry.targets.add(st.target);
+          if (st.span !== null) {
+            const dedupeKey = `${st.span.start}:${st.span.end}`;
+            if (!entry.spans.some((s) => `${s.start}:${s.end}` === dedupeKey)) {
+              entry.spans.push(st.span);
+            }
+          }
         } else {
-          moves.set(st.info.key, { sym: st.info.sym, targets: new Set([st.target]) });
+          moves.set(st.info.key, {
+            sym: st.info.sym,
+            targets: new Set([st.target]),
+            spans: st.span !== null ? [st.span] : [],
+          });
         }
       }
     }
 
-    for (const [key, { sym, targets }] of moves) {
+    for (const [key, { sym, targets, spans }] of moves) {
       const closure = epsilonClosure(nfa, targets);
       const cid = closureId(closure);
       let to = ids.get(cid);
@@ -214,7 +229,7 @@ export function buildDfa(nfa: Nfa): Dfa {
         states.push({ id: to, accepting: closure.has(nfa.accept) });
         queue.push(closure);
       }
-      edges.push({ from, to, sym, key, label: symLabel(sym) });
+      edges.push({ from, to, sym, key, label: symLabel(sym), spans });
     }
   }
 

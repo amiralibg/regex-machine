@@ -6,7 +6,7 @@
  */
 
 import { matcherLabel } from 'engine';
-import type { Dfa, Nfa } from 'engine';
+import type { Dfa, Nfa, Span } from 'engine';
 
 export type VizEdgeKind =
   | 'consume'
@@ -27,6 +27,8 @@ export interface VizNode {
   gateIndex?: number;
   /** chip text for gate nodes, e.g. `(?=` */
   gateLabel?: string;
+  /** source spans (gate chips carry their lookaround group's span) */
+  spans?: Span[];
 }
 
 export interface VizEdge {
@@ -36,6 +38,8 @@ export interface VizEdge {
   kind: VizEdgeKind;
   label: string;
   selfLoop: boolean;
+  /** pattern spans that produced this edge — the highlighting contract */
+  spans: Span[];
 }
 
 export interface MachineGraph {
@@ -60,7 +64,7 @@ export function nfaToGraph(nfa: Nfa): MachineGraph {
   const edges: VizEdge[] = [];
 
   // gateEnter targets host the visual gate chip for their transition's gate
-  const gateHosts = new Map<string, { gateIdx: number; chip: string }>();
+  const gateHosts = new Map<string, { gateIdx: number; chip: string; span: Span | null }>();
   for (let s = 0; s < nfa.states.length; s++) {
     for (const tr of nfa.states[s]!) {
       if (tr.kind === 'gateEnter') {
@@ -68,6 +72,7 @@ export function nfaToGraph(nfa: Nfa): MachineGraph {
         gateHosts.set(String(tr.target), {
           gateIdx: tr.gateIdx,
           chip: g ? gateChip(g.kind, g.polarity) : '(?)',
+          span: tr.span,
         });
       }
     }
@@ -81,6 +86,7 @@ export function nfaToGraph(nfa: Nfa): MachineGraph {
       isStart: s === nfa.start,
       gateIndex: host?.gateIdx,
       gateLabel: host?.chip,
+      spans: host && host.span !== null ? [host.span] : undefined,
     });
   }
 
@@ -141,6 +147,7 @@ export function nfaToGraph(nfa: Nfa): MachineGraph {
         kind,
         label,
         selfLoop: s === to,
+        spans: tr.span !== null ? [tr.span] : [],
       });
     }
   }
@@ -162,6 +169,7 @@ export function dfaToGraph(dfa: Dfa): MachineGraph {
       kind: e.sym.t === 'assert' ? ('assert' as const) : ('consume' as const),
       label: e.label,
       selfLoop: e.from === e.to,
+      spans: e.spans,
     })),
   };
 }

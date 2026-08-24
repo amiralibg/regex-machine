@@ -10,7 +10,7 @@
  * - lookaround     → `gateEnter` transitions into independent sub-NFAs (gates)
  */
 
-import type { AnchorKind, ClassItem, Node } from './ast';
+import type { AnchorKind, ClassItem, Node, Span } from './ast';
 
 export type NodeId = number;
 
@@ -20,28 +20,39 @@ export type ConsumeMatcher =
   | { t: 'class'; items: ClassItem[]; negated: boolean; fold: boolean }
   | { t: 'dot'; dotAll: boolean };
 
+/**
+ * Every transition carries the source span of the AST construct that
+ * produced it (null for purely structural glue like sequence chaining).
+ * This powers bidirectional pattern↔graph highlighting.
+ */
 export type Trans =
-  | { kind: 'consume'; matcher: ConsumeMatcher; target: NodeId }
-  | { kind: 'epsilon'; target: NodeId }
-  | { kind: 'assert'; check: AnchorKind; multiline: boolean; target: NodeId }
-  | { kind: 'captureOpen'; group: number; target: NodeId }
-  | { kind: 'captureClose'; group: number; target: NodeId }
+  | { kind: 'consume'; matcher: ConsumeMatcher; target: NodeId; span: Span | null }
+  | { kind: 'epsilon'; target: NodeId; span: Span | null }
+  | { kind: 'assert'; check: AnchorKind; multiline: boolean; target: NodeId; span: Span | null }
+  | { kind: 'captureOpen'; group: number; target: NodeId; span: Span | null }
+  | { kind: 'captureClose'; group: number; target: NodeId; span: Span | null }
   /**
    * Marks loop-body entry: records current position (+ undo log length).
    * Paired with `loopGuard` to implement the JS "stop on empty iteration"
    * rule, including rolling back the empty iteration's captures.
    */
-  | { kind: 'loopEnter'; loopId: number; target: NodeId }
+  | { kind: 'loopEnter'; loopId: number; target: NodeId; span: Span | null }
   /**
    * Empty iteration ⇒ path fails (rolled back). Progress ⇒ move to
    * contTarget now, registering altNode's edge as a backtrack choice point.
    * Greedy loops: cont=next iteration, alt=exit. Lazy: reversed.
    * altNode null = no fallback (bounded optional copies).
    */
-  | { kind: 'loopGuard'; loopId: number; contTarget: NodeId; altNode: NodeId | null }
-  | { kind: 'backref'; group: number; fold: boolean; target: NodeId }
+  | {
+      kind: 'loopGuard';
+      loopId: number;
+      contTarget: NodeId;
+      altNode: NodeId | null;
+      span: Span | null;
+    }
+  | { kind: 'backref'; group: number; fold: boolean; target: NodeId; span: Span | null }
   /** Lookaround gate: verdict decides whether the main thread proceeds. */
-  | { kind: 'gateEnter'; gateIdx: number; target: NodeId };
+  | { kind: 'gateEnter'; gateIdx: number; target: NodeId; span: Span | null };
 
 export interface Gate {
   /** independent sub-machine for the lookaround body */
@@ -224,8 +235,8 @@ class Builder {
     this.states[from]!.push(tr);
   }
 
-  eps(from: NodeId, to: NodeId): void {
-    this.connect(from, { kind: 'epsilon', target: to });
+  eps(from: NodeId, to: NodeId, span: Span | null = null): void {
+    this.connect(from, { kind: 'epsilon', target: to, span });
   }
 
   get fold(): boolean {
@@ -239,8 +250,15 @@ class Builder {
   /**
    * Unbounded repetition with the empty-iteration guard.
    * `skip` adds the zero-iteration exit edge (false for `x+`, true for `x*`).
+   * All structural loop edges carry the quantifier's span so highlighting
+   * the quantifier lights up the whole loop skeleton.
    */
-  starLike(makeBody: () => { start: NodeId; end: NodeId }, greedy: boolean, skip: boolean): { start: NodeId; end: NodeId } {
+  starLike(
+    makeBody: () => { start: NodeId; end: NodeId },
+    greedy: boolean,
+    skip: boolean,
+    qSpan: Span | null,
+  ): { start: NodeId; end: NodeId } {
     const s = this.newState();
     const entry = this.newState();
     const e = this.newState();
@@ -248,13 +266,13 @@ class Builder {
 
     // priority edges: greedy tries another iteration first, lazy prefers exit
     if (greedy) {
-      this.eps(s, entry);
-      if (skip) this.eps(s, e);
+      this.eps(s, entry, qSpan);
+      if (skip) this.eps(s, e, qSpan);
     } else {
-      if (skip) this.eps(s, e);
-      this.eps(s, entry);
+      if (skip) this.eps(s, e, qSpan);
+      this.eps(s, entry, qSpan);
     }
-    this.connect(entry, { kind: 'loopEnter', loopId, target: -1 });
+    this.connect(entry, { kind: 'loopEnter', loopId, target: -1, span: qSpan });
     const body = makeBody();
     // fix entry target now that body exists
     const entryOut = this.states[entry]!;
@@ -265,29 +283,29 @@ class Builder {
     // unwinds into the body's own remaining alternatives.
     const altExit = (): NodeId => {
       const n = this.newState();
-      this.eps(n, e);
+      this.eps(n, e, qSpan);
       return n;
     };
     const altEntry = (): NodeId => {
       const n = this.newState();
-      this.eps(n, entry);
+      this.eps(n, entry, qSpan);
       return n;
     };
     if (greedy) {
-      this.connect(body.end, { kind: 'loopGuard', loopId, contTarget: entry, altNode: altExit() });
+      this.connect(body.end, { kind: 'loopGuard', loopId, contTarget: entry, altNode: altExit(), span: qSpan });
     } else {
-      this.connect(body.end, { kind: 'loopGuard', loopId, contTarget: e, altNode: altEntry() });
+      this.connect(body.end, { kind: 'loopGuard', loopId, contTarget: e, altNode: altEntry(), span: qSpan });
     }
     return { start: s, end: e };
   }
 
-  optional(makeBody: () => { start: NodeId; end: NodeId }, greedy: boolean): { start: NodeId; end: NodeId } {
+  optional(makeBody: () => { start: NodeId; end: NodeId }, greedy: boolean, qSpan: Span | null): { start: NodeId; end: NodeId } {
     const s = this.newState();
     const e = this.newState();
     // empty-iteration check applies to optional copies too (min already met)
     const entry = this.newState();
     const loopId = this.nextLoopId();
-    this.connect(entry, { kind: 'loopEnter', loopId, target: -1 });
+    this.connect(entry, { kind: 'loopEnter', loopId, target: -1, span: qSpan });
     const body = makeBody();
     {
       const entryOut = this.states[entry]!;
@@ -295,13 +313,13 @@ class Builder {
     }
     // progress passes through to e; empty ⇒ blocked (min already met).
     // No fallback: repetition comes from sibling copies' skip edges.
-    const guard: Trans = { kind: 'loopGuard', loopId, contTarget: e, altNode: null };
+    const guard: Trans = { kind: 'loopGuard', loopId, contTarget: e, altNode: null, span: qSpan };
     if (greedy) {
-      this.eps(s, entry);
-      this.eps(s, e);
+      this.eps(s, entry, qSpan);
+      this.eps(s, e, qSpan);
     } else {
-      this.eps(s, e);
-      this.eps(s, entry);
+      this.eps(s, e, qSpan);
+      this.eps(s, entry, qSpan);
     }
     this.connect(body.end, guard);
     return { start: s, end: e };
@@ -323,7 +341,7 @@ function compileNode(n: Node, b: Builder, ctx: Ctx): { start: NodeId; end: NodeI
       let acc = compileNode(n.parts[0]!, b, ctx);
       for (let k = 1; k < n.parts.length; k++) {
         const f = compileNode(n.parts[k]!, b, ctx);
-        b.eps(acc.end, f.start);
+        b.eps(acc.end, f.start); // structural glue — no span
         acc = { start: acc.start, end: f.end };
       }
       return acc;
@@ -333,8 +351,8 @@ function compileNode(n: Node, b: Builder, ctx: Ctx): { start: NodeId; end: NodeI
       const e = b.newState();
       for (const branch of n.branches) {
         const f = compileNode(branch, b, ctx);
-        b.eps(s, f.start); // priority = declaration order
-        b.eps(f.end, e);
+        b.eps(s, f.start, n.span); // priority = declaration order
+        b.eps(f.end, e, n.span);
       }
       return { start: s, end: e };
     }
@@ -342,9 +360,9 @@ function compileNode(n: Node, b: Builder, ctx: Ctx): { start: NodeId; end: NodeI
       const st = b.newState();
       const en = b.newState();
       if (n.units.length === 1) {
-        b.connect(st, { kind: 'consume', matcher: { t: 'unit', cu: n.units[0]!, fold: b.fold }, target: en });
+        b.connect(st, { kind: 'consume', matcher: { t: 'unit', cu: n.units[0]!, fold: b.fold }, target: en, span: n.span });
       } else {
-        b.connect(st, { kind: 'consume', matcher: { t: 'pair', hi: n.units[0]!, lo: n.units[1]! }, target: en });
+        b.connect(st, { kind: 'consume', matcher: { t: 'pair', hi: n.units[0]!, lo: n.units[1]! }, target: en, span: n.span });
       }
       return { start: st, end: en };
     }
@@ -355,25 +373,26 @@ function compileNode(n: Node, b: Builder, ctx: Ctx): { start: NodeId; end: NodeI
         kind: 'consume',
         matcher: { t: 'class', items: n.items, negated: n.negated, fold: b.fold },
         target: en,
+        span: n.span,
       });
       return { start: st, end: en };
     }
     case 'dot': {
       const st = b.newState();
       const en = b.newState();
-      b.connect(st, { kind: 'consume', matcher: { t: 'dot', dotAll: ctx.flags.dotAll }, target: en });
+      b.connect(st, { kind: 'consume', matcher: { t: 'dot', dotAll: ctx.flags.dotAll }, target: en, span: n.span });
       return { start: st, end: en };
     }
     case 'anchor': {
       const st = b.newState();
       const en = b.newState();
-      b.connect(st, { kind: 'assert', check: n.kind, multiline: ctx.flags.multiline, target: en });
+      b.connect(st, { kind: 'assert', check: n.kind, multiline: ctx.flags.multiline, target: en, span: n.span });
       return { start: st, end: en };
     }
     case 'backref': {
       const st = b.newState();
       const en = b.newState();
-      b.connect(st, { kind: 'backref', group: n.index, fold: b.fold, target: en });
+      b.connect(st, { kind: 'backref', group: n.index, fold: b.fold, target: en, span: n.span });
       return { start: st, end: en };
     }
     case 'group': {
@@ -382,12 +401,13 @@ function compileNode(n: Node, b: Builder, ctx: Ctx): { start: NodeId; end: NodeI
         const st = b.newState();
         const openSt = b.newState();
         const en = b.newState();
-        b.connect(st, { kind: 'captureOpen', group: g, target: openSt });
+        // capture edges carry the WHOLE group's span (parens included)
+        b.connect(st, { kind: 'captureOpen', group: g, target: openSt, span: n.span });
         const body = compileNode(n.body, b, ctx);
         b.eps(openSt, body.start);
         const closeSt = b.newState();
         b.eps(body.end, closeSt);
-        b.connect(closeSt, { kind: 'captureClose', group: g, target: en });
+        b.connect(closeSt, { kind: 'captureClose', group: g, target: en, span: n.span });
         return { start: st, end: en };
       }
       if (n.kind === 'nonCapture') {
@@ -403,7 +423,7 @@ function compileNode(n: Node, b: Builder, ctx: Ctx): { start: NodeId; end: NodeI
       });
       const st = b.newState();
       const en = b.newState();
-      b.connect(st, { kind: 'gateEnter', gateIdx, target: en });
+      b.connect(st, { kind: 'gateEnter', gateIdx, target: en, span: n.span });
       return { start: st, end: en };
     }
     case 'quantifier': {
@@ -423,7 +443,7 @@ function compileNode(n: Node, b: Builder, ctx: Ctx): { start: NodeId; end: NodeI
       if (max === Infinity) {
         // mandatory copies already satisfy min ⇒ the tail may always skip,
         // which gives lazy quantifiers their prefer-exit choice point
-        const star = b.starLike(() => compileNode(n.child, b, ctx), greedy, true);
+        const star = b.starLike(() => compileNode(n.child, b, ctx), greedy, true, n.span);
         if (cur === null) return star;
         b.eps(cur, star.start);
         return { start: start!, end: star.end };
@@ -439,7 +459,7 @@ function compileNode(n: Node, b: Builder, ctx: Ctx): { start: NodeId; end: NodeI
       // chain of `extra` optional copies
       const opts = [];
       for (let k = 0; k < extra; k++) {
-        opts.push(b.optional(() => compileNode(n.child, b, ctx), greedy));
+        opts.push(b.optional(() => compileNode(n.child, b, ctx), greedy, n.span));
       }
       for (let k = 0; k < opts.length - 1; k++) {
         b.eps(opts[k]!.end, opts[k + 1]!.start);

@@ -90,10 +90,16 @@ export function GraphView({
   graph,
   title,
   onGateClick,
+  onHover,
+  activeEdgeIds,
 }: {
   graph: MachineGraph;
   title?: string;
   onGateClick?: (gateIndex: number) => void;
+  /** reports the edge/node under the cursor (null = left) */
+  onHover?: (hover: { kind: 'edge' | 'node'; id: string } | null) => void;
+  /** edges that should glow (from either direction of highlighting) */
+  activeEdgeIds?: Set<string> | null;
 }) {
   const [layout, setLayout] = useState<LayoutResult | null>(null);
 
@@ -119,6 +125,8 @@ export function GraphView({
   const nodeById = new Map(layout.nodes.map((n) => [n.id, n]));
   const routedById = new Map(layout.edges.map((e) => [e.id, e]));
   const selfLoops = graph.edges.filter((e) => e.selfLoop);
+  const anyActive = (activeEdgeIds?.size ?? 0) > 0;
+  const isGlowing = (id: string): boolean => activeEdgeIds?.has(id) === true;
 
   return (
     <div
@@ -141,20 +149,29 @@ export function GraphView({
           const style = EDGE_STYLES[e.kind];
           const arrow = arrowAt(routed.points);
           const mid = labelAnchor(routed.points);
+          const glow = isGlowing(e.id);
           return (
-            <g key={e.id}>
+            <g
+              key={e.id}
+              opacity={!anyActive || glow ? 1 : 0.28}
+              onMouseEnter={() => onHover?.({ kind: 'edge', id: e.id })}
+              onMouseLeave={() => onHover?.(null)}
+            >
+              {/* fat invisible hit area */}
+              <path d={roundedPath(routed.points)} fill="none" stroke="transparent" strokeWidth={12} />
               <path
                 d={roundedPath(routed.points)}
                 fill="none"
-                stroke={style.stroke}
-                strokeWidth={style.width}
+                stroke={glow ? 'var(--color-accent)' : style.stroke}
+                strokeWidth={style.width + (glow ? 0.8 : 0)}
                 strokeDasharray={style.dash}
+                className="transition-all duration-75"
               />
               {arrow && (
                 <polygon
                   points={`0,-3.2 ${ARROW},0 0,3.2`}
                   transform={`translate(${arrow.base.x} ${arrow.base.y}) rotate(${arrow.angle})`}
-                  fill={style.stroke}
+                  fill={glow ? 'var(--color-accent)' : style.stroke}
                 />
               )}
               {e.label && mid && (
@@ -168,6 +185,7 @@ export function GraphView({
                   stroke="var(--color-panel)"
                   strokeWidth="3"
                   paintOrder="stroke"
+                  className="pointer-events-none"
                 >
                   {e.label}
                 </text>
@@ -183,6 +201,7 @@ export function GraphView({
           const cx = n.x + 22;
           const cy = n.y + 22;
           const style = EDGE_STYLES[e.kind];
+          const glow = isGlowing(e.id);
           const lift = 26;
           const p1 = { x: cx - 10, y: cy - RIM + 2 };
           const p2 = { x: cx + 10, y: cy - RIM + 2 };
@@ -190,12 +209,24 @@ export function GraphView({
           const d = `M ${p1.x} ${p1.y} C ${p1.x - 14} ${apex.y}, ${p2.x + 14} ${apex.y}, ${p2.x} ${p2.y}`;
           const arrow = { x: p2.x, y: p2.y - 1 };
           return (
-            <g key={e.id}>
-              <path d={d} fill="none" stroke={style.stroke} strokeWidth={style.width} strokeDasharray={style.dash} />
+            <g
+              key={e.id}
+              opacity={!anyActive || glow ? 1 : 0.28}
+              onMouseEnter={() => onHover?.({ kind: 'edge', id: e.id })}
+              onMouseLeave={() => onHover?.(null)}
+            >
+              <path d={d} fill="none" stroke="transparent" strokeWidth={12} />
+              <path
+                d={d}
+                fill="none"
+                stroke={glow ? 'var(--color-accent)' : style.stroke}
+                strokeWidth={style.width + (glow ? 0.8 : 0)}
+                strokeDasharray={style.dash}
+              />
               <polygon
                 points={`-3.2,-${ARROW} 0,0 3.2,-${ARROW}`}
                 transform={`translate(${arrow.x} ${arrow.y})`}
-                fill={style.stroke}
+                fill={glow ? 'var(--color-accent)' : style.stroke}
               />
               {e.label && (
                 <text
@@ -208,6 +239,7 @@ export function GraphView({
                   stroke="var(--color-panel)"
                   strokeWidth="3"
                   paintOrder="stroke"
+                  className="pointer-events-none"
                 >
                   {e.label}
                 </text>
@@ -241,11 +273,15 @@ export function GraphView({
           const cy = n.y + 22;
 
           if (g.gateLabel !== undefined) {
+            const chipGlow = isGlowing(`node:${n.id}`);
             return (
               <g
                 key={n.id}
                 className={onGateClick ? 'cursor-pointer' : undefined}
+                style={{ opacity: !anyActive || chipGlow ? 1 : 0.35 }}
                 onClick={() => g.gateIndex !== undefined && onGateClick?.(g.gateIndex)}
+                onMouseEnter={() => onHover?.({ kind: 'node', id: n.id })}
+                onMouseLeave={() => onHover?.(null)}
               >
                 <rect
                   x={n.x + 2}
@@ -254,8 +290,8 @@ export function GraphView({
                   height={32}
                   rx={7}
                   fill="var(--color-canvas)"
-                  stroke="var(--color-gate)"
-                  strokeWidth={1.6}
+                  stroke={chipGlow ? 'var(--color-accent)' : 'var(--color-gate)'}
+                  strokeWidth={chipGlow ? 2.2 : 1.6}
                 />
                 <text
                   x={cx}
@@ -263,7 +299,7 @@ export function GraphView({
                   textAnchor="middle"
                   fontSize="11"
                   fontFamily="var(--font-mono)"
-                  fill="var(--color-gate)"
+                  fill={chipGlow ? 'var(--color-accent)' : 'var(--color-gate)'}
                 >
                   {g.gateLabel}
                 </text>
