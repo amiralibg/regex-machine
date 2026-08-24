@@ -101,16 +101,19 @@ export function GraphView({
   /** edges that should glow (from either direction of highlighting) */
   activeEdgeIds?: Set<string> | null;
 }) {
-  const [layout, setLayout] = useState<LayoutResult | null>(null);
+  // layout result stored TOGETHER WITH the graph it was computed from:
+  // on keystrokes React re-renders with a new graph before effects run,
+  // and rendering stale positions against a new machine crashes
+  const [laid, setLaid] = useState<{ graph: MachineGraph; data: LayoutResult } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setLayout(null);
+    setLaid(null);
     setFailed(null);
     layoutMachine(graph)
       .then((r) => {
-        if (!cancelled) setLayout(r);
+        if (!cancelled) setLaid({ graph, data: r });
       })
       .catch((e: unknown) => {
         // an elk failure must freeze on "laying out…" forever, not blank the app
@@ -129,6 +132,7 @@ export function GraphView({
     );
   }
 
+  const layout = laid !== null && laid.graph === graph ? laid.data : null;
   if (!layout) {
     return (
       <div className="flex h-40 items-center justify-center text-sm" style={{ color: 'var(--color-faint)' }}>
@@ -283,7 +287,8 @@ export function GraphView({
 
         {/* nodes */}
         {layout.nodes.map((n) => {
-          const g = graph.nodes.find((gn) => gn.id === n.id)!;
+          const g = graph.nodes.find((gn) => gn.id === n.id);
+          if (g === undefined) return null; // cannot happen post-identity-check; belt and suspenders
           const cx = n.x + 22;
           const cy = n.y + 22;
 
