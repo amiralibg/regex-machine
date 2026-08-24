@@ -13,6 +13,8 @@ import { PatternStrip } from './components/PatternStrip';
 import { InputStrip } from './components/InputStrip';
 import { PlaybackControls } from './components/PlaybackControls';
 import { GrowthChart } from './components/GrowthChart';
+import { CoursePanel } from './components/CoursePanel';
+import type { Exercise } from './lib/course';
 
 const initial = readPermalink();
 
@@ -34,6 +36,15 @@ export function App() {
   const [speedIdx, setSpeedIdx] = useState(1);
   const [growth, setGrowth] = useState<GrowthResult | null>(null);
   const [measuring, setMeasuring] = useState(false);
+  const [courseOpen, setCourseOpen] = useState(false);
+
+  const loadExercise = (ex: Exercise): void => {
+    setPattern(ex.pattern);
+    setFlags(ex.flags ?? '');
+    setInput(ex.input);
+    setView('nfa');
+    setCourseOpen(false);
+  };
 
   // permalink
   useEffect(() => {
@@ -101,9 +112,18 @@ export function App() {
     <div className="mx-auto flex max-w-6xl flex-col gap-4 p-6">
       <header className="flex items-baseline justify-between">
         <h1 className="font-mono text-lg font-semibold tracking-tight">regex-machine</h1>
-        <span className="text-xs" style={{ color: 'var(--color-faint)' }}>
-          phase 5 · redos analysis
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs" style={{ color: 'var(--color-faint)' }}>
+            learn · test · see how it works
+          </span>
+          <button
+            onClick={() => setCourseOpen(true)}
+            className="rounded px-3 py-1 font-mono text-xs transition-opacity hover:opacity-80"
+            style={{ border: '1px solid var(--color-accent)', color: 'var(--color-accent)' }}
+          >
+            course →
+          </button>
+        </div>
       </header>
 
       {/* inputs */}
@@ -327,6 +347,9 @@ export function App() {
           onSpans={setStripHighlight}
         />
       )}
+
+      {/* course */}
+      {courseOpen && <CoursePanel onClose={() => setCourseOpen(false)} onLoadExercise={loadExercise} />}
 
       <footer className="flex flex-col gap-2 pb-4">
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]" style={{ color: 'var(--color-faint)' }}>
