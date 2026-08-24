@@ -8,7 +8,9 @@ const cases: Array<[string, string, string]> = [
   ['(a*)*', '', ''],
   ['(a*)*', 'aaa', ''],
   ['(?<w>\\d{2,4})-(?<m>\\d{1,2})', 'date: 2024-11-3!', ''],
-  ['^(a+)+$', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaab', ''],
+  // catastrophic shape kept small so NATIVE stays quick; ours refuses via
+  // step limit (limitExceeded) and the equality branch is skipped
+  ['^(a+)+$', 'a'.repeat(22) + 'b', ''],
   ['(?<=ab|abc)c', 'xxabcc', ''],
   ['(?<!a)b', 'ab xb', ''],
   ['(?=(a+))a', 'aaa', ''],

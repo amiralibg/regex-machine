@@ -110,14 +110,13 @@ function parseClassBody(src: string, start: number): ClassParseResult {
   const items: ClassItem[] = [];
   const spanOf = (from: number, to: number): Span => ({ start: from, end: to });
 
-  // leading ']' is literal
-  let first = true;
+  // ']' immediately after '[' or '[^' closes the class (empty class in JS,
+  // which matches nothing; [^] matches everything)
   while (true) {
     if (i >= src.length) {
       throw new RegexSyntaxError('Unterminated character class', { start: start, end: src.length });
     }
-    if (src[i] === ']' && !first) break;
-    first = false;
+    if (src[i] === ']') break;
 
     let lo: number;
     let atomStart = i;

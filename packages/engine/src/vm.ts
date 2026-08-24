@@ -68,7 +68,6 @@ class Machine {
   readonly trace: TraceEvent[] | null;
   steps = 0;
 
-  readonly stack: Frame[] = [];
   private readonly log: Undo[] = [];
 
   constructor(
@@ -107,17 +106,20 @@ class Machine {
    * Returns accept position, or null on failure, or -1 on step-limit hit.
    */
   attempt(nfa: Nfa, startPos: number, endConstraint: number | null): number | null | -1 {
+    // per-attempt choice-point stack: nested gate runs share the machine
+    // (caps, log, trace, steps) but must never touch each other's frames
+    const stack: Frame[] = [];
     let node = nfa.start;
     let pos = startPos;
 
     const rewind = (): RewindOutcome => {
-      while (this.stack.length > 0) {
-        const f = this.stack.pop()!;
+      while (stack.length > 0) {
+        const f = stack.pop()!;
         this.emit({ t: 'rewind', node: f.node, pos: f.pos });
         this.truncateLog(f.logLen);
         const tr = nfa.states[f.node]![f.ti]!;
         this.steps++;
-        const res = this.apply(nfa, tr, f.node, f.ti, f.pos);
+        const res = this.apply(nfa, tr, f.node, f.ti, f.pos, stack);
         if (res.r === 'moved') {
           node = res.node;
           pos = res.pos;
@@ -137,7 +139,7 @@ class Machine {
 
       const outs = nfa.states[node] ?? [];
       for (let k = outs.length - 1; k >= 1; k--) {
-        this.stack.push({ node, pos, logLen: this.log.length, ti: k });
+        stack.push({ node, pos, logLen: this.log.length, ti: k });
       }
 
       const first = outs[0];
@@ -149,7 +151,7 @@ class Machine {
       }
 
       this.steps++;
-      const res = this.apply(nfa, first, node, 0, pos);
+      const res = this.apply(nfa, first, node, 0, pos, stack);
       switch (res.r) {
         case 'moved':
           node = res.node;
@@ -166,7 +168,14 @@ class Machine {
     }
   }
 
-  private apply(nfa: Nfa, tr: Trans, fromNode: number, transIdx: number, posIn: number): ApplyResult {
+  private apply(
+    nfa: Nfa,
+    tr: Trans,
+    fromNode: number,
+    transIdx: number,
+    posIn: number,
+    stack: Frame[],
+  ): ApplyResult {
     switch (tr.kind) {
       case 'consume': {
         const np = matchConsume(tr.matcher, this.input, posIn);
@@ -213,19 +222,30 @@ class Machine {
       case 'loopGuard': {
         const lp = this.loops[tr.loopId]!;
         if (lp !== null && posIn === lp.pos) {
-          // empty iteration with min met → roll back the whole iteration
-          // (captures included) and exit the loop, per ES RepeatMatcher
-          this.truncateLog(lp.logLen);
-          this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, consumed: false });
-          return moved(tr.breakTarget, posIn);
+          // Empty iteration once the minimum count is met ⇒ this path fails
+          // (ES RepeatMatcher). No explicit rollback: unwinding is pure LIFO,
+          // so pending choice points restore exactly their own watermarks —
+          // an eager truncate here could unwind below frames still on the
+          // stack and corrupt enclosing captures.
+          return BLOCKED;
         }
         this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, consumed: false });
+        if (tr.altNode !== null) {
+          // a productive iteration registers its alternative (exit or another
+          // round) as a backtrack choice point
+          stack.push({ node: tr.altNode, pos: posIn, logLen: this.log.length, ti: 0 });
+        }
         return moved(tr.contTarget, posIn);
       }
       case 'backref': {
         const st = this.caps[2 * tr.group] ?? null;
         const en = this.caps[2 * tr.group + 1] ?? null;
-        if (st === null || en === null) return BLOCKED;
+        if (st === null || en === null) {
+          // ES: a backreference to a group that did not participate matches
+          // the empty string
+          this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, consumed: false });
+          return moved(tr.target, posIn);
+        }
         const len = en - st;
         if (!matchesAt(this.input, st, posIn, len, tr.fold)) return BLOCKED;
         this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, consumed: len > 0 });
@@ -322,7 +342,6 @@ export function findMatch(
   const searchStart = Math.max(0, Math.min(from, input.length));
 
   for (let s = searchStart; s <= input.length; s++) {
-    m.stack.length = 0;
     m.truncateLog(0);
     const end = m.attempt(compiled.nfa, s, null);
     if (end === -1) {

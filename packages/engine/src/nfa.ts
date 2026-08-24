@@ -32,7 +32,13 @@ export type Trans =
    * rule, including rolling back the empty iteration's captures.
    */
   | { kind: 'loopEnter'; loopId: number; target: NodeId }
-  | { kind: 'loopGuard'; loopId: number; contTarget: NodeId; breakTarget: NodeId }
+  /**
+   * Empty iteration ⇒ path fails (rolled back). Progress ⇒ move to
+   * contTarget now, registering altNode's edge as a backtrack choice point.
+   * Greedy loops: cont=next iteration, alt=exit. Lazy: reversed.
+   * altNode null = no fallback (bounded optional copies).
+   */
+  | { kind: 'loopGuard'; loopId: number; contTarget: NodeId; altNode: NodeId | null }
   | { kind: 'backref'; group: number; fold: boolean; target: NodeId }
   /** Lookaround gate: verdict decides whether the main thread proceeds. */
   | { kind: 'gateEnter'; gateIdx: number; target: NodeId };
@@ -236,16 +242,24 @@ class Builder {
     // fix entry target now that body exists
     const entryOut = this.states[entry]!;
     (entryOut[entryOut.length - 1]! as { target: number }).target = body.start;
-    // After each iteration: greedy tries another round first (via the guard,
-    // which also implements the empty-iteration break); the plain exit edge
-    // is the fallback choice point that lets backtracking give characters back.
-    const guard: Trans = { kind: 'loopGuard', loopId, contTarget: entry, breakTarget: e };
+    // After each iteration: greedy continues into another round and keeps
+    // "exit" as its backtrack option; lazy does the reverse. An EMPTY
+    // iteration registers neither — the path just fails, so backtracking
+    // unwinds into the body's own remaining alternatives.
+    const altExit = (): NodeId => {
+      const n = this.newState();
+      this.eps(n, e);
+      return n;
+    };
+    const altEntry = (): NodeId => {
+      const n = this.newState();
+      this.eps(n, entry);
+      return n;
+    };
     if (greedy) {
-      this.connect(body.end, guard);
-      this.eps(body.end, e);
+      this.connect(body.end, { kind: 'loopGuard', loopId, contTarget: entry, altNode: altExit() });
     } else {
-      this.eps(body.end, e);
-      this.connect(body.end, guard);
+      this.connect(body.end, { kind: 'loopGuard', loopId, contTarget: e, altNode: altEntry() });
     }
     return { start: s, end: e };
   }
@@ -253,15 +267,26 @@ class Builder {
   optional(makeBody: () => { start: NodeId; end: NodeId }, greedy: boolean): { start: NodeId; end: NodeId } {
     const s = this.newState();
     const e = this.newState();
+    // empty-iteration check applies to optional copies too (min already met)
+    const entry = this.newState();
+    const loopId = this.nextLoopId();
+    this.connect(entry, { kind: 'loopEnter', loopId, target: -1 });
     const body = makeBody();
+    {
+      const entryOut = this.states[entry]!;
+      (entryOut[entryOut.length - 1]! as { target: number }).target = body.start;
+    }
+    // progress passes through to e; empty ⇒ blocked (min already met).
+    // No fallback: repetition comes from sibling copies' skip edges.
+    const guard: Trans = { kind: 'loopGuard', loopId, contTarget: e, altNode: null };
     if (greedy) {
-      this.eps(s, body.start);
+      this.eps(s, entry);
       this.eps(s, e);
     } else {
       this.eps(s, e);
-      this.eps(s, body.start);
+      this.eps(s, entry);
     }
-    this.eps(body.end, e);
+    this.connect(body.end, guard);
     return { start: s, end: e };
   }
 }
@@ -379,7 +404,9 @@ function compileNode(n: Node, b: Builder, ctx: Ctx): { start: NodeId; end: NodeI
         cur = f.end;
       }
       if (max === Infinity) {
-        const star = b.starLike(() => compileNode(n.child, b, ctx), greedy, min === 0);
+        // mandatory copies already satisfy min ⇒ the tail may always skip,
+        // which gives lazy quantifiers their prefer-exit choice point
+        const star = b.starLike(() => compileNode(n.child, b, ctx), greedy, true);
         if (cur === null) return star;
         b.eps(cur, star.start);
         return { start: start!, end: star.end };

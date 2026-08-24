@@ -108,18 +108,32 @@ class Parser {
       case 'cls':
         return { type: 'charClass', negated: t.negated, items: t.items, span: t.span };
       case 'escCls':
-        return { type: 'charClass', negated: t.negated, items: [{ t: 'klass', kind: t.kind, negated: t.negated }], span: t.span };
+        // negation lives solely on the class (\W ≡ [^\w]); item stays positive
+        return { type: 'charClass', negated: t.negated, items: [{ t: 'klass', kind: t.kind, negated: false }], span: t.span };
       case 'numBackref':
         return { type: 'backref', index: t.n, span: t.span }; // resolved/validated in post-pass
       case 'namedBackref':
         return { type: 'backref', index: -1, name: t.name, span: t.span };
       case 'open': {
+        // capture indices are assigned by OPENING paren order (ES rule),
+        // i.e. before the body is parsed — never after
+        const kind = groupKindOf(t);
+        let index: number | undefined;
+        if (kind === 'capture') {
+          index = ++this.groupCount;
+          if (t.name !== undefined) {
+            if (this.names.has(t.name)) {
+              throw new RegexSyntaxError(`Duplicate capture group name "${t.name}"`, t.span);
+            }
+            this.names.set(t.name, index);
+          }
+        }
         const body = this.parseAlternation();
         const close = this.next();
         if (close.t !== 'close') {
           throw new RegexSyntaxError('Unterminated group', t.span);
         }
-        return this.finishGroup(t, body, { start: t.span.start, end: close.span.end });
+        return this.finishGroup(t, body, { start: t.span.start, end: close.span.end }, index);
       }
       case 'close':
         throw new RegexSyntaxError('Unmatched closing parenthesis', t.span);
@@ -131,19 +145,18 @@ class Parser {
     }
   }
 
-  private finishGroup(open: Extract<Tok, { t: 'open' }>, body: Node, span: Span): Node {
+  private finishGroup(
+    open: Extract<Tok, { t: 'open' }>,
+    body: Node,
+    span: Span,
+    index: number | undefined,
+  ): Node {
     const kind = groupKindOf(open);
     if (kind === 'capture') {
       if (open.name !== undefined) {
-        if (this.names.has(open.name)) {
-          throw new RegexSyntaxError(`Duplicate capture group name "${open.name}"`, open.span);
-        }
-        const index = ++this.groupCount;
-        this.names.set(open.name, index);
-        return { type: 'group', kind, index, name: open.name, body, span };
+        return { type: 'group', kind, index: index!, name: open.name, body, span };
       }
-      const index = ++this.groupCount;
-      return { type: 'group', kind, index, body, span };
+      return { type: 'group', kind, index: index!, body, span };
     }
     return { type: 'group', kind, body, span };
   }
