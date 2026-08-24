@@ -189,6 +189,23 @@ export function matchConsume(
   return ok ? pos + 1 : -1;
 }
 
+/** Zero-width assertion test shared by the VM and the DFA builder. */
+export function checkAssert(check: AnchorKind, multiline: boolean, input: string, pos: number): boolean {
+  switch (check) {
+    case 'lineStart':
+      return pos === 0 || (multiline && isLineTerminator(input.charCodeAt(pos - 1)));
+    case 'lineEnd':
+      return pos === input.length || (multiline && isLineTerminator(input.charCodeAt(pos)));
+    case 'wordBoundary':
+    case 'nonWordBoundary': {
+      const before = pos > 0 && isWordChar(input.charCodeAt(pos - 1));
+      const after = pos < input.length && isWordChar(input.charCodeAt(pos));
+      const isB = before !== after;
+      return check === 'wordBoundary' ? isB : !isB;
+    }
+  }
+}
+
 class Builder {
   readonly states: Trans[][] = [];
 

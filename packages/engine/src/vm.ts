@@ -11,7 +11,7 @@
  */
 
 import type { Nfa, Gate, Trans } from './nfa';
-import { foldEq, isLineTerminator, isWordChar, matchConsume } from './nfa';
+import { checkAssert, foldEq, isLineTerminator, isWordChar, matchConsume } from './nfa';
 import type { AnchorKind } from './ast';
 import type { MatchResult, TraceEvent } from './trace';
 
@@ -292,23 +292,6 @@ class Machine {
       }
     }
   }
-}
-
-function checkAssert(check: AnchorKind, multiline: boolean, input: string, pos: number): boolean {
-  switch (check) {
-    case 'lineStart':
-      return pos === 0 || (multiline && isLineTerminator(input.charCodeAt(pos - 1)));
-    case 'lineEnd':
-      return pos === input.length || (multiline && isLineTerminator(input.charCodeAt(pos)));
-    case 'wordBoundary':
-    case 'nonWordBoundary': {
-      const before = pos > 0 && isWordChar(input.charCodeAt(pos - 1));
-      const after = pos < input.length && isWordChar(input.charCodeAt(pos));
-      const isB = before !== after;
-      return check === 'wordBoundary' ? isB : !isB;
-    }
-  }
-  throw new Error(`unreachable assert kind: ${String(check)}`);
 }
 
 function matchesAt(input: string, from: number, at: number, len: number, fold: boolean): boolean {

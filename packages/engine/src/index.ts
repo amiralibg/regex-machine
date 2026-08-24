@@ -9,6 +9,8 @@ import type { Flags, Nfa } from './nfa';
 import { parse } from './parser';
 import { findMatch } from './vm';
 import type { CompiledRegex, ExecOptions, SearchOutcome } from './vm';
+import { buildDfa, dfaMatchesAt, isRegularNfa, matcherKey, matcherLabel } from './dfa';
+import type { Dfa, DfaEdge, DfaSym } from './dfa';
 
 export type { Node, Span, ClassItem, GroupKind } from './ast';
 export type {
@@ -20,6 +22,8 @@ export type {
 } from './nfa';
 export type { MatchResult, TraceEvent } from './trace';
 export type { ExecOptions, SearchOutcome, CompiledRegex } from './vm';
+export type { Dfa, DfaEdge, DfaSym } from './dfa';
+export { buildDfa, dfaMatchesAt, isRegularNfa, matcherKey, matcherLabel } from './dfa';
 export { RegexSyntaxError, UnsupportedSyntaxError } from './errors';
 
 /** Compile a pattern + flags to an executable machine (also keeps the AST). */
