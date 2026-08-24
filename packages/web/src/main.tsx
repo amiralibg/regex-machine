@@ -1,6 +1,7 @@
 import { StrictMode, Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { MotionConfig } from 'framer-motion';
 import { App } from './App';
 import './index.css';
 
@@ -44,8 +45,10 @@ class CrashBoundary extends Component<{ children: ReactNode }, { error: Error | 
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <CrashBoundary>
-      <App />
-    </CrashBoundary>
+    <MotionConfig reducedMotion="user">
+      <CrashBoundary>
+        <App />
+      </CrashBoundary>
+    </MotionConfig>
   </StrictMode>,
 );

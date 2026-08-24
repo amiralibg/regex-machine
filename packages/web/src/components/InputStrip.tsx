@@ -16,7 +16,10 @@ export function InputStrip({
 }) {
   const cells = input.split('');
   return (
-    <div className="relative flex flex-wrap items-end gap-px py-1 font-mono text-sm">
+    <div
+      className="relative flex items-end gap-px py-1 font-mono text-sm"
+      style={{ overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'thin' }}
+    >
       {cells.map((ch, i) => {
         const inMatch = matchRange !== null && i >= matchRange[0] && i < matchRange[1];
         const atHead = i === pos && !wasRewind;
@@ -24,7 +27,7 @@ export function InputStrip({
         return (
           <span
             key={i}
-            className="relative inline-flex h-7 min-w-[1.4rem] items-center justify-center rounded transition-colors duration-75"
+            className="relative inline-flex h-7 w-[1.35rem] shrink-0 items-center justify-center rounded transition-colors duration-75"
             style={{
               color: 'var(--color-dim)',
               background:
@@ -40,12 +43,12 @@ export function InputStrip({
           </span>
         );
       })}
-      {/* playhead marker */}
+      {/* playhead marker — cells are fixed-width so the offset is exact */}
       {pos <= input.length && (
         <span
           className="pointer-events-none absolute -top-1 h-9 select-none text-xs transition-all duration-100"
           style={{
-            left: `${Math.min(pos, input.length) * 1.45}rem`,
+            left: Math.min(pos, input.length) * 22.6,
             transform: 'translateX(-45%)',
             color: wasRewind ? 'var(--color-gate)' : 'var(--color-accent)',
           }}

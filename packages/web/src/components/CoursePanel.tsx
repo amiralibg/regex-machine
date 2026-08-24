@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { COURSE } from '../lib/course';
 import type { Exercise, Lesson } from '../lib/course';
 
@@ -51,14 +52,26 @@ export function CoursePanel({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={onClose}>
-      <aside
+    <motion.div
+      className="fixed inset-0 z-50 flex justify-end"
+      style={{ background: 'rgba(0,0,0,0.55)' }}
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <motion.aside
         className="flex h-full w-full max-w-2xl flex-col overflow-hidden"
         style={{ background: 'var(--color-canvas)', borderLeft: '1px solid var(--color-hairline)' }}
         onClick={(e) => e.stopPropagation()}
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'tween', duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
       >
         {/* header */}
-        <div className="px-8 pt-7 pb-5" style={{ borderBottom: '1px solid var(--color-hairline)' }}>
+        <div className="px-5 pt-7 pb-5 sm:px-8" style={{ borderBottom: '1px solid var(--color-hairline)' }}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold tracking-tight">Learn regex</h2>
@@ -89,7 +102,7 @@ export function CoursePanel({
         </div>
 
         {/* modules */}
-        <div className="flex-1 overflow-y-auto px-8 py-6">
+        <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8">
           {COURSE.map((mod, mi) => (
             <section key={mod.id} className="mb-10">
               <header className="mb-4">
@@ -123,8 +136,8 @@ export function CoursePanel({
             That's the whole course. Break patterns on purpose now — the machine will show you what happens.
           </p>
         </div>
-      </aside>
-    </div>
+      </motion.aside>
+    </motion.div>
   );
 }
 
@@ -182,8 +195,17 @@ function LessonCard({
         </span>
       </button>
 
-      {open && (
-        <div className="mx-auto flex max-w-[54ch] flex-col gap-5 px-6 pb-7 pt-1">
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+            style={{ overflow: 'hidden' }}
+          >
+        <div className="mx-auto flex max-w-[54ch] flex-col gap-5 px-5 pb-7 pt-1 sm:px-6">
           {/* objective as a lead */}
           <p
             className="pl-3 text-[13px] leading-relaxed"
@@ -283,7 +305,9 @@ function LessonCard({
             {done ? '✓ completed' : allCorrect ? 'mark complete' : 'answer correctly to continue'}
           </button>
         </div>
+      </motion.div>
       )}
+      </AnimatePresence>
     </article>
   );
 }

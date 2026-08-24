@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { analyzeReDoS, buildDfa, compileRegex, exec, isRegularNfa } from 'engine';
 import type { RegexSyntaxError, Span, UnsupportedSyntaxError } from 'engine';
 import { dfaToGraph, nfaToGraph } from './lib/machineGraph';
@@ -37,6 +38,7 @@ export function App() {
   const [growth, setGrowth] = useState<GrowthResult | null>(null);
   const [measuring, setMeasuring] = useState(false);
   const [courseOpen, setCourseOpen] = useState(false);
+  const [examplesOpen, setExamplesOpen] = useState(false);
 
   const loadExercise = (ex: Exercise): void => {
     setPattern(ex.pattern);
@@ -109,11 +111,16 @@ export function App() {
   const factor = growth ? growthFactor(growth.points) : null;
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-4 p-6">
-      <header className="flex items-baseline justify-between">
+    <motion.div
+      className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:gap-5 sm:p-6"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+    >
+      <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="font-mono text-lg font-semibold tracking-tight">regex-machine</h1>
         <div className="flex items-center gap-3">
-          <span className="text-xs" style={{ color: 'var(--color-faint)' }}>
+          <span className="hidden text-xs sm:inline" style={{ color: 'var(--color-faint)' }}>
             learn · test · see how it works
           </span>
           <button
@@ -134,7 +141,7 @@ export function App() {
             value={pattern}
             onChange={(e) => setPattern(e.target.value)}
             spellCheck={false}
-            className="w-full flex-1 bg-transparent font-mono text-sm outline-none"
+            className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none"
             style={{ color: 'var(--color-ink)' }}
           />
           <span className="font-mono text-sm" style={{ color: 'var(--color-dim)' }}>/</span>
@@ -143,11 +150,11 @@ export function App() {
             onChange={(e) => setFlags(e.target.value.replace(/[^igms]/g, '').slice(0, 4))}
             spellCheck={false}
             placeholder="flags"
-            className="w-16 bg-transparent font-mono text-sm outline-none"
+            className="w-14 shrink-0 bg-transparent font-mono text-sm outline-none"
             style={{ color: 'var(--color-accent)' }}
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--color-faint)' }}>
             test
           </span>
@@ -155,7 +162,7 @@ export function App() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             spellCheck={false}
-            className="w-full flex-1 bg-transparent font-mono text-sm outline-none"
+            className="min-w-[8rem] flex-1 bg-transparent font-mono text-sm outline-none"
             style={{ color: 'var(--color-ink)' }}
           />
           {preview && (
@@ -177,8 +184,17 @@ export function App() {
       </div>
 
       {/* ReDoS findings */}
-      {findings.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-lg p-4" style={{ border: '1px solid rgba(242,178,62,0.4)', background: 'rgba(242,178,62,0.06)' }}>
+      <AnimatePresence>
+        {findings.length > 0 && (
+          <motion.div
+            key="findings"
+            className="flex flex-col gap-2 rounded-lg p-4"
+            style={{ border: '1px solid rgba(242,178,62,0.4)', background: 'rgba(242,178,62,0.06)' }}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
           <div className="flex items-center justify-between gap-2">
             <span className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--color-accent)' }}>
               ⚠ potential exponential backtracking
@@ -207,50 +223,79 @@ export function App() {
             </button>
           ))}
           {growth && (
-            <div className="mt-1 flex flex-col gap-1">
+            <motion.div
+              className="mt-1 flex flex-col gap-1"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+            >
               <GrowthChart points={growth.points} inputDesc={`'a'·n + 'b'`} />
               <p className="text-[11px]" style={{ color: 'var(--color-dim)' }}>
                 {factor !== null
                   ? `each +4 input chars multiplies the work by ≈${factor.toFixed(1)}× — that straight line on a log scale IS exponential backtracking.`
                   : 'the step limit was hit almost immediately — growth beyond this point is unbounded.'}
               </p>
-            </div>
+            </motion.div>
           )}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* examples */}
-      <details className="rounded-lg px-4 py-3" style={{ border: '1px solid var(--color-hairline)', background: 'var(--color-panel)' }}>
-        <summary className="cursor-pointer font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--color-dim)' }}>
+      <div className="rounded-lg px-4 py-3" style={{ border: '1px solid var(--color-hairline)', background: 'var(--color-panel)' }}>
+        <button
+          onClick={() => setExamplesOpen((v) => !v)}
+          className="flex w-full items-center justify-between font-mono text-xs uppercase tracking-widest"
+          style={{ color: 'var(--color-dim)' }}
+        >
           example library · {EXAMPLES.length} patterns
-        </summary>
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {EXAMPLES.map((ex) => (
-            <button
-              key={ex.title}
-              onClick={() => {
-                setPattern(ex.pattern);
-                setFlags(ex.flags ?? '');
-                setInput(ex.input);
-                setView('nfa');
-              }}
-              className="rounded-md p-2.5 text-left transition-colors hover:bg-white/5"
-              style={{ border: '1px solid var(--color-hairline)' }}
+          <span aria-hidden style={{ color: 'var(--color-faint)', fontSize: 10 }}>
+            {examplesOpen ? '▾' : '▸'}
+          </span>
+        </button>
+        <AnimatePresence initial={false}>
+          {examplesOpen && (
+            <motion.div
+              key="grid"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              style={{ overflow: 'hidden' }}
             >
-              <div className="font-mono text-xs" style={{ color: ex.title.startsWith('catastrophic') ? 'var(--color-gate)' : 'var(--color-accent)' }}>
-                {ex.title}
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {EXAMPLES.map((ex, i) => (
+                  <motion.button
+                    key={ex.title}
+                    onClick={() => {
+                      setPattern(ex.pattern);
+                      setFlags(ex.flags ?? '');
+                      setInput(ex.input);
+                      setView('nfa');
+                    }}
+                    className="rounded-md p-2.5 text-left transition-colors hover:bg-white/5"
+                    style={{ border: '1px solid var(--color-hairline)' }}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i * 0.03, 0.4), duration: 0.25 }}
+                  >
+                    <div className="font-mono text-xs" style={{ color: ex.title.startsWith('catastrophic') ? 'var(--color-gate)' : 'var(--color-accent)' }}>
+                      {ex.title}
+                    </div>
+                    <div className="mt-1 truncate font-mono text-[11px]" style={{ color: 'var(--color-dim)' }}>
+                      /{ex.pattern}/{ex.flags ?? ''} vs {JSON.stringify(ex.input.slice(0, 18))}
+                      {ex.input.length > 18 ? '…' : ''}
+                    </div>
+                    <div className="mt-1 text-[11px] leading-snug" style={{ color: 'var(--color-faint)' }}>
+                      {ex.note}
+                    </div>
+                  </motion.button>
+                ))}
               </div>
-              <div className="mt-1 truncate font-mono text-[11px]" style={{ color: 'var(--color-dim)' }}>
-                /{ex.pattern}/{ex.flags ?? ''} vs {JSON.stringify(ex.input.slice(0, 18))}
-                {ex.input.length > 18 ? '…' : ''}
-              </div>
-              <div className="mt-1 text-[11px] leading-snug" style={{ color: 'var(--color-faint)' }}>
-                {ex.note}
-              </div>
-            </button>
-          ))}
-        </div>
-      </details>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* playback (NFA view only) */}
       {compiled.ok && view === 'nfa' && input !== '' && nfaViz && traced && pb && (
@@ -284,7 +329,7 @@ export function App() {
       )}
 
       {/* view toggle */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex overflow-hidden rounded-md" style={{ border: '1px solid var(--color-hairline)' }}>
           {(['nfa', 'dfa'] as const).map((m) => {
             const disabled = m === 'dfa' && !regular;
@@ -294,14 +339,23 @@ export function App() {
                 key={m}
                 disabled={disabled}
                 onClick={() => setView(m)}
-                className="px-4 py-1.5 font-mono text-xs uppercase tracking-wider transition-opacity disabled:cursor-not-allowed"
-                style={{
-                  background: active ? 'var(--color-raise)' : 'transparent',
-                  color: disabled ? 'var(--color-faint)' : active ? 'var(--color-ink)' : 'var(--color-dim)',
-                  opacity: disabled ? 0.55 : 1,
-                }}
+                className="relative px-4 py-1.5 font-mono text-xs uppercase tracking-wider transition-opacity disabled:cursor-not-allowed"
+                style={{ opacity: disabled ? 0.55 : 1 }}
               >
-                {m}
+                {active && (
+                  <motion.span
+                    layoutId="view-pill"
+                    className="absolute inset-0 rounded-md"
+                    style={{ background: 'var(--color-raise)', border: '1px solid rgba(242,178,62,0.35)' }}
+                    transition={{ type: 'spring', bounce: 0.18, duration: 0.45 }}
+                  />
+                )}
+                <span
+                  className="relative z-10"
+                  style={{ color: disabled ? 'var(--color-faint)' : active ? 'var(--color-accent)' : 'var(--color-dim)' }}
+                >
+                  {m}
+                </span>
               </button>
             );
           })}
@@ -349,7 +403,7 @@ export function App() {
       )}
 
       {/* course */}
-      {courseOpen && <CoursePanel onClose={() => setCourseOpen(false)} onLoadExercise={loadExercise} />}
+      <AnimatePresence>{courseOpen && <CoursePanel onClose={() => setCourseOpen(false)} onLoadExercise={loadExercise} />}</AnimatePresence>
 
       <footer className="flex flex-col gap-2 pb-4">
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]" style={{ color: 'var(--color-faint)' }}>
@@ -366,7 +420,7 @@ export function App() {
           every edge it produced · the URL fragment is your permalink
         </p>
       </footer>
-    </div>
+    </motion.div>
   );
 }
 

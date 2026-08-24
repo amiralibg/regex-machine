@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import type { MachineGraph, VizEdgeKind } from '../lib/machineGraph';
 import { layoutMachine } from '../lib/layout';
-import type { LayoutResult, RoutedEdge } from '../lib/layout';
+import type { LayoutResult } from '../lib/layout';
 
 interface EdgeStyle {
   stroke: string;
@@ -160,7 +161,18 @@ export function GraphView({
           {title}
         </div>
       )}
-      <svg width={layout.width} height={layout.height} className="block">
+      <svg
+        viewBox={`0 0 ${layout.width} ${layout.height}`}
+        // scale to fit until ~1000px wide; larger machines scroll instead of
+        // shrinking into illegibility
+        width="100%"
+        style={{ maxWidth: layout.width, minWidth: Math.min(layout.width, 1000), display: 'block' }}
+      >
+        <motion.g
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+        >
         {/* edges */}
         {graph.edges.map((e) => {
           const routed = routedById.get(e.id);
@@ -365,6 +377,7 @@ export function GraphView({
             </g>
           );
         })}
+        </motion.g>
       </svg>
     </div>
   );

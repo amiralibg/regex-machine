@@ -41,7 +41,11 @@ export function GrowthChart({ points, inputDesc }: { points: GrowthPoint[]; inpu
 
   return (
     <div className="flex flex-col gap-2">
-      <svg width={W} height={H} className="block max-w-full" style={{ background: 'var(--color-panel)', border: '1px solid var(--color-hairline)', borderRadius: 8 }}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%"
+        style={{ maxWidth: W, display: 'block', background: 'var(--color-panel)', border: '1px solid var(--color-hairline)', borderRadius: 8 }}
+      >
         {/* gridlines + y labels */}
         {yTicks.map((t) => (
           <g key={t.v}>
