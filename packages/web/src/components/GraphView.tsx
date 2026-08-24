@@ -314,20 +314,34 @@ export function GraphView({
 
           return (
             <g key={n.id}>
-              <circle cx={cx} cy={cy} r={16} fill="var(--color-canvas)" stroke="var(--color-faint)" strokeWidth={1.4} />
-              {g.accepting && (
-                <circle cx={cx} cy={cy} r={12} fill="none" stroke="var(--color-accent)" strokeWidth={1.6} />
-              )}
-              <text
-                x={cx}
-                y={cy + 3.5}
-                textAnchor="middle"
-                fontSize="10"
-                fontFamily="var(--font-mono)"
-                fill={g.accepting ? 'var(--color-accent)' : 'var(--color-dim)'}
-              >
-                {n.id}
-              </text>
+              {(() => {
+                const glowing = activeEdgeIds?.has(`node:${n.id}`) === true;
+                return (
+                  <>
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={16}
+                      fill={glowing ? 'rgba(242,178,62,0.12)' : 'var(--color-canvas)'}
+                      stroke={glowing ? 'var(--color-accent)' : 'var(--color-faint)'}
+                      strokeWidth={glowing ? 2.2 : 1.4}
+                    />
+                    {g.accepting && (
+                      <circle cx={cx} cy={cy} r={12} fill="none" stroke="var(--color-accent)" strokeWidth={1.6} />
+                    )}
+                    <text
+                      x={cx}
+                      y={cy + 3.5}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fontFamily="var(--font-mono)"
+                      fill={glowing || g.accepting ? 'var(--color-accent)' : 'var(--color-dim)'}
+                    >
+                      {n.id}
+                    </text>
+                  </>
+                );
+              })()}
             </g>
           );
         })}

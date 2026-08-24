@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { buildDfa, compileRegex, exec, isRegularNfa } from 'engine';
 import type { RegexSyntaxError, Span, UnsupportedSyntaxError } from 'engine';
 import { dfaToGraph, nfaToGraph } from './lib/machineGraph';
+import { edgeIdLookup, playbackAt } from './lib/playback';
 import { HighlightedGraph } from './components/HighlightedGraph';
 import { PatternStrip } from './components/PatternStrip';
+import { InputStrip } from './components/InputStrip';
+import { PlaybackControls } from './components/PlaybackControls';
 
 const EXAMPLES: Array<{ label: string; pattern: string; flags?: string }> = [
   { label: 'alternation order', pattern: '(a|ab)+c' },
@@ -27,6 +30,9 @@ export function App() {
   const [openGate, setOpenGate] = useState<number | null>(null);
   const [hoverChar, setHoverChar] = useState<number | null>(null);
   const [stripHighlight, setStripHighlight] = useState<Span[] | null>(null);
+  const [cursor, setCursor] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [speedIdx, setSpeedIdx] = useState(1);
 
   const compiled = useMemo(() => {
     try {
@@ -50,12 +56,29 @@ export function App() {
     return r;
   }, [compiled, input]);
 
-  // a stale gate index means nothing once the machine changes
+  // full trace for playback — only worth it for reasonable trace sizes
+  const traced = useMemo(() => {
+    if (!compiled.ok || input === '') return null;
+    const r = exec(compiled.value, input, 0, { trace: true });
+    if (r.limitExceeded || !r.trace || r.trace.length > 200_000) return { tooBig: true as const };
+    return { tooBig: false as const, result: r };
+  }, [compiled, input]);
+
+  const nfaViz = useMemo(() => (compiled.ok ? nfaToGraph(compiled.value.nfa) : null), [compiled]);
+  const lookup = useMemo(() => (nfaViz ? edgeIdLookup(nfaViz) : null), [nfaViz]);
+  const pb = useMemo(
+    () => (traced && !traced.tooBig && nfaViz ? playbackAt(traced.result.trace!, cursor, lookup ?? undefined) : null),
+    [traced, cursor, lookup, nfaViz],
+  );
+
+  // a stale gate/cursor means nothing once the machine or input changes
   useEffect(() => {
     setOpenGate(null);
     setHoverChar(null);
     setStripHighlight(null);
-  }, [compiled]);
+    setCursor(0);
+    setPlaying(false);
+  }, [compiled, input]);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-4 p-6">
@@ -137,6 +160,40 @@ export function App() {
         </div>
       </div>
 
+      {/* playback (NFA view only) */}
+      {compiled.ok && view === 'nfa' && input !== '' && nfaViz && traced && pb && (
+        <div className="flex flex-col gap-3">
+          <div
+            className="rounded-lg px-4 py-2"
+            style={{ border: '1px solid var(--color-hairline)', background: 'var(--color-panel)' }}
+          >
+            <div className="mb-1 text-[10px] uppercase tracking-widest" style={{ color: 'var(--color-faint)' }}>
+              input · playhead
+            </div>
+            <InputStrip
+              input={input}
+              pos={pb.pos}
+              matchRange={traced && !traced.tooBig && traced.result.matched ? [traced.result.start, traced.result.end] : null}
+              wasRewind={pb.wasRewind}
+            />
+          </div>
+          {traced.tooBig ? (
+            <div className="rounded-lg px-3 py-2 text-xs" style={{ border: '1px solid var(--color-hairline)', color: 'var(--color-dim)' }}>
+              trace too large to play back — simplify the pattern or shorten the input
+            </div>
+          ) : (
+            <PlaybackControls
+              state={pb}
+              playing={playing}
+              speedIdx={speedIdx}
+              onCursor={setCursor}
+              onPlayPause={setPlaying}
+              onSpeed={setSpeedIdx}
+            />
+          )}
+        </div>
+      )}
+
       {/* view toggle */}
       <div className="flex items-center gap-3">
         <div className="flex overflow-hidden rounded-md" style={{ border: '1px solid var(--color-hairline)' }}>
@@ -179,6 +236,7 @@ export function App() {
               hoverChar={hoverChar}
               onGateClick={setOpenGate}
               onSpans={setStripHighlight}
+              pinnedIds={pb?.activeIds ?? null}
             />
           ) : dfaGraph ? (
             <HighlightedGraph

@@ -19,12 +19,14 @@ export type TraceEvent =
       node: NodeId; // state the step left
       trans: TransitionId;
       pos: number; // position before the step
+      posAfter: number; // position after (differs on consume/backref)
       consumed: boolean;
     }
   | {
       t: 'rewind';
       i: number;
       node: NodeId; // choice point being restored
+      trans: TransitionId; // the untried alternative about to be taken
       pos: number; // position restored to
     }
   | {

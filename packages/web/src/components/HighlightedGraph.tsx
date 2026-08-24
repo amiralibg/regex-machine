@@ -18,17 +18,20 @@ export function HighlightedGraph({
   hoverChar,
   onGateClick,
   onSpans,
+  pinnedIds,
 }: {
   viz: MachineGraph;
   title?: string;
   hoverChar: number | null;
   onGateClick?: (gateIndex: number) => void;
   onSpans?: (spans: Span[] | null) => void;
+  /** externally-driven glow (playback), merged with local hover glow */
+  pinnedIds?: Set<string> | null;
 }) {
   const [selfHover, setSelfHover] = useState<{ kind: 'edge' | 'node'; id: string } | null>(null);
 
   const glow = useMemo(() => {
-    const s = new Set<string>();
+    const s = new Set<string>(pinnedIds ?? []);
     if (hoverChar !== null) {
       for (const e of viz.edges) {
         if (spansCover(e.spans, hoverChar)) s.add(e.id);
@@ -38,7 +41,7 @@ export function HighlightedGraph({
       s.add(selfHover.kind === 'node' ? `node:${selfHover.id}` : selfHover.id);
     }
     return s.size > 0 ? s : null;
-  }, [viz, hoverChar, selfHover]);
+  }, [viz, hoverChar, selfHover, pinnedIds]);
 
   const handleHover = (h: { kind: 'edge' | 'node'; id: string } | null): void => {
     setSelfHover(h);

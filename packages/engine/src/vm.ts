@@ -115,7 +115,7 @@ class Machine {
     const rewind = (): RewindOutcome => {
       while (stack.length > 0) {
         const f = stack.pop()!;
-        this.emit({ t: 'rewind', node: f.node, pos: f.pos });
+        this.emit({ t: 'rewind', node: f.node, trans: f.ti, pos: f.pos });
         this.truncateLog(f.logLen);
         const tr = nfa.states[f.node]![f.ti]!;
         this.steps++;
@@ -180,16 +180,16 @@ class Machine {
       case 'consume': {
         const np = matchConsume(tr.matcher, this.input, posIn);
         if (np < 0) return BLOCKED;
-        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, consumed: true });
+        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, posAfter: np, consumed: true });
         return moved(tr.target, np);
       }
       case 'epsilon': {
-        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, consumed: false });
+        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, posAfter: posIn, consumed: false });
         return moved(tr.target, posIn);
       }
       case 'assert': {
         if (!checkAssert(tr.check, tr.multiline, this.input, posIn)) return BLOCKED;
-        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, consumed: false });
+        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, posAfter: posIn, consumed: false });
         return moved(tr.target, posIn);
       }
       case 'captureOpen': {
@@ -216,7 +216,7 @@ class Machine {
           prevLogLen: prev ? prev.logLen : -1,
         });
         this.loops[tr.loopId] = { pos: posIn, logLen: this.log.length };
-        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, consumed: false });
+        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, posAfter: posIn, consumed: false });
         return moved(tr.target, posIn);
       }
       case 'loopGuard': {
@@ -229,7 +229,7 @@ class Machine {
           // stack and corrupt enclosing captures.
           return BLOCKED;
         }
-        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, consumed: false });
+        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, posAfter: posIn, consumed: false });
         if (tr.altNode !== null) {
           // a productive iteration registers its alternative (exit or another
           // round) as a backtrack choice point
@@ -243,12 +243,12 @@ class Machine {
         if (st === null || en === null) {
           // ES: a backreference to a group that did not participate matches
           // the empty string
-          this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, consumed: false });
+          this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, posAfter: posIn, consumed: false });
           return moved(tr.target, posIn);
         }
         const len = en - st;
         if (!matchesAt(this.input, st, posIn, len, tr.fold)) return BLOCKED;
-        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, consumed: len > 0 });
+        this.emit({ t: 'step', node: fromNode, trans: transIdx, pos: posIn, posAfter: posIn + len, consumed: len > 0 });
         return moved(tr.target, posIn + len);
       }
       case 'gateEnter': {

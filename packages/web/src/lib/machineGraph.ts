@@ -40,6 +40,8 @@ export interface VizEdge {
   selfLoop: boolean;
   /** pattern spans that produced this edge — the highlighting contract */
   spans: Span[];
+  /** NFA graphs only: which machine transition this edge renders */
+  source?: { node: number; trans: number };
 }
 
 export interface MachineGraph {
@@ -92,6 +94,7 @@ export function nfaToGraph(nfa: Nfa): MachineGraph {
 
   let ei = 0;
   for (let s = 0; s < nfa.states.length; s++) {
+    let transitionIndex = 0;
     for (const tr of nfa.states[s]!) {
       let to: number;
       let kind: VizEdgeKind;
@@ -148,7 +151,9 @@ export function nfaToGraph(nfa: Nfa): MachineGraph {
         label,
         selfLoop: s === to,
         spans: tr.span !== null ? [tr.span] : [],
+        source: { node: s, trans: transitionIndex },
       });
+      transitionIndex++;
     }
   }
 
