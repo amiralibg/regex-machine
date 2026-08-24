@@ -33,5 +33,11 @@ export function readPermalink(): Partial<Permalink> {
 export function writePermalink(p: Permalink): void {
   if (typeof window === 'undefined') return;
   const enc = encodeURIComponent;
-  window.history.replaceState(null, '', `#p=${enc(p.pattern)}&f=${enc(p.flags)}&i=${enc(p.input)}&v=${p.view}`);
+  const hash = `p=${enc(p.pattern)}&f=${enc(p.flags)}&i=${enc(p.input)}&v=${p.view}`;
+  try {
+    window.history.replaceState(null, '', `#${hash}`);
+  } catch {
+    // some browsers throttle rapid replaceState calls; the link is a
+    // nice-to-have and must never take the app down
+  }
 }

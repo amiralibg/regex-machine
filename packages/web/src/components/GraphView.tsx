@@ -102,17 +102,32 @@ export function GraphView({
   activeEdgeIds?: Set<string> | null;
 }) {
   const [layout, setLayout] = useState<LayoutResult | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLayout(null);
-    layoutMachine(graph).then((r) => {
-      if (!cancelled) setLayout(r);
-    });
+    setFailed(null);
+    layoutMachine(graph)
+      .then((r) => {
+        if (!cancelled) setLayout(r);
+      })
+      .catch((e: unknown) => {
+        // an elk failure must freeze on "laying out…" forever, not blank the app
+        if (!cancelled) setFailed(e instanceof Error ? e.message : String(e));
+      });
     return () => {
       cancelled = true;
     };
   }, [graph]);
+
+  if (failed !== null) {
+    return (
+      <div className="rounded-lg px-4 py-6 text-center font-mono text-xs" style={{ border: '1px solid var(--color-hairline)', background: 'var(--color-panel)', color: 'var(--color-gate)' }}>
+        graph layout failed: {failed}
+      </div>
+    );
+  }
 
   if (!layout) {
     return (
