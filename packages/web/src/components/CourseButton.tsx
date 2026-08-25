@@ -51,14 +51,14 @@ export function CourseButton({ onClick }: { onClick: () => void }) {
 
     const wiggle = (now: number): void => {
       if (!alive) return;
-      const power = 9 + Math.random() * 9;
+      const power = 22 + Math.random() * 14;
       s.angleVel += (Math.random() < 0.5 ? -1 : 1) * power;
       if (Math.random() < 0.75) launch(110 + power * 5, (Math.random() - 0.5) * 50);
       wiggleAt = now + 3200 + Math.random() * 5200;
     };
 
     const nudge = (): void => {
-      s.angleVel += (Math.random() < 0.5 ? -1 : 1) * 6;
+      s.angleVel += (Math.random() < 0.5 ? -1 : 1) * (28 + Math.random() * 12);
       launch(120, (Math.random() - 0.5) * 30);
     };
     nudgeRef.current = nudge;
