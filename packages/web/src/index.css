@@ -57,3 +57,86 @@ body::after {
 ::selection {
   background: rgba(242, 178, 62, 0.35);
 }
+
+/* the course-button critter */
+.critter-leg {
+  transform-origin: 15px 29px;
+}
+.critter-leg-a {
+  animation: critter-step-a 0.42s ease-in-out infinite;
+}
+.critter-leg-b {
+  animation: critter-step-b 0.42s ease-in-out infinite;
+}
+.critter-leg-air-a {
+  transform: rotate(-38deg);
+}
+.critter-leg-air-b {
+  transform: rotate(38deg);
+}
+.critter-arm-a {
+  transform-origin: 9.5px 19px;
+  animation: critter-swing-a 0.42s ease-in-out infinite;
+}
+.critter-arm-b {
+  transform-origin: 20.5px 19px;
+  animation: critter-swing-b 0.42s ease-in-out infinite;
+}
+.critter-arm-air-a {
+  transform: rotate(-105deg);
+}
+.critter-arm-air-b {
+  transform: rotate(105deg);
+}
+@keyframes critter-step-a {
+  0%,
+  100% {
+    transform: rotate(22deg);
+  }
+  50% {
+    transform: rotate(-22deg);
+  }
+}
+@keyframes critter-step-b {
+  0%,
+  100% {
+    transform: rotate(-22deg);
+  }
+  50% {
+    transform: rotate(22deg);
+  }
+}
+@keyframes critter-swing-a {
+  0%,
+  100% {
+    transform: rotate(16deg);
+  }
+  50% {
+    transform: rotate(-16deg);
+  }
+}
+@keyframes critter-swing-b {
+  0%,
+  100% {
+    transform: rotate(-16deg);
+  }
+  50% {
+    transform: rotate(16deg);
+  }
+}
+.critter-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: critter-blink 4.4s infinite;
+}
+@keyframes critter-blink {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  96%,
+  98% {
+    transform: scaleY(0.1);
+  }
+}
