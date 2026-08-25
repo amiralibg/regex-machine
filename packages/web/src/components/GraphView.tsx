@@ -141,7 +141,7 @@ export function GraphView({
     return (
       <div
         className="flex h-40 animate-pulse items-center justify-center text-sm"
-        style={{ color: 'var(--color-faint)', border: '1px solid var(--color-hairline)', background: 'var(--color-panel)', borderRadius: 8 }}
+        style={{ color: 'var(--color-faint)', border: '1px solid var(--color-hairline)', background: 'var(--color-panel)', borderRadius: 'var(--radius-lg)' }}
       >
         laying out…
       </div>

@@ -1,14 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Patrick+Hand&display=swap');
 @import "tailwindcss";
 
 @theme {
+  /* charcoal board, chalk-white ink, chalk-yellow accent */
   --color-canvas: #0e0f13;
   --color-panel: #15171e;
   --color-raise: #1c1f29;
-  --color-hairline: rgba(255, 255, 255, 0.08);
+  --color-hairline: rgba(255, 255, 255, 0.1);
   --color-ink: #e7e9ef;
   --color-dim: #8b90a0;
   --color-body: #b9bec9;
   --color-faint: #565b6b;
+
   --color-accent: #f2b23e;
   --color-start: #58c4dc;
   --color-consume: #ccd1e0;
@@ -16,7 +19,16 @@
   --color-loop: #a08df2;
   --color-backref: #ef7fa7;
   --color-gate: #f07f5e;
+
+  --font-sans: "Patrick Hand", "Comic Sans MS", cursive;
+  --font-display: "Caveat", "Patrick Hand", cursive;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+
+  /* wobbly hand-drawn corners: uneven elliptical radii per corner */
+  --radius-sm: 5px 3px 6px 3px / 3px 5px 4px 6px;
+  --radius-md: 11px 5px 10px 6px / 6px 10px 5px 11px;
+  --radius-lg: 16px 6px 15px 8px / 8px 14px 7px 16px;
+  --radius-xl: 21px 8px 19px 9px / 9px 18px 8px 20px;
 }
 
 html,
@@ -28,4 +40,20 @@ body,
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
+}
+
+/* chalk dust over everything */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: rgba(242, 178, 62, 0.35);
 }

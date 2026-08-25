@@ -44,7 +44,7 @@ export function GrowthChart({ points, inputDesc }: { points: GrowthPoint[]; inpu
       <svg
         viewBox={`0 0 ${W} ${H}`}
         width="100%"
-        style={{ maxWidth: W, display: 'block', background: 'var(--color-panel)', border: '1px solid var(--color-hairline)', borderRadius: 8 }}
+        style={{ maxWidth: W, display: 'block', background: 'var(--color-panel)', border: '1px solid var(--color-hairline)', borderRadius: 'var(--radius-lg)' }}
       >
         {/* gridlines + y labels */}
         {yTicks.map((t) => (

@@ -1,0 +1,13 @@
+services:
+  regex-machine:
+    build: .
+    image: regex-machine
+    container_name: regex-machine
+    ports:
+      - "8088:80"
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

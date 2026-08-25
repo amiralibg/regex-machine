@@ -118,15 +118,15 @@ export function App() {
       transition={{ duration: 0.35, ease: 'easeOut' }}
     >
       <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="font-mono text-lg font-semibold tracking-tight">regex-machine</h1>
+        <h1 className="-rotate-1 font-display text-4xl font-bold leading-none">regex-machine</h1>
         <div className="flex items-center gap-3">
-          <span className="hidden text-xs sm:inline" style={{ color: 'var(--color-faint)' }}>
+          <span className="hidden text-sm sm:inline" style={{ color: 'var(--color-faint)' }}>
             learn · test · see how it works
           </span>
           <button
             onClick={() => setCourseOpen(true)}
-            className="rounded px-3 py-1 font-mono text-xs transition-opacity hover:opacity-80"
-            style={{ border: '1px solid var(--color-accent)', color: 'var(--color-accent)' }}
+            className="rounded px-3 py-1 text-sm transition-opacity hover:opacity-80"
+            style={{ border: '1.5px solid var(--color-accent)', color: 'var(--color-accent)', borderRadius: 'var(--radius-md)' }}
           >
             course →
           </button>
@@ -155,8 +155,8 @@ export function App() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--color-faint)' }}>
-            test
+          <span className="text-xs uppercase" style={{ color: 'var(--color-faint)' }}>
+            test string:
           </span>
           <input
             value={input}
@@ -196,15 +196,15 @@ export function App() {
             transition={{ duration: 0.3, ease: 'easeOut' }}
           >
           <div className="flex items-center justify-between gap-2">
-            <span className="font-mono text-xs uppercase tracking-widest" style={{ color: 'var(--color-accent)' }}>
+            <span className="text-sm uppercase" style={{ color: 'var(--color-accent)' }}>
               ⚠ potential exponential backtracking
             </span>
             {compiled.ok && (
               <button
                 onClick={() => void runGrowth()}
                 disabled={measuring}
-                className="rounded px-3 py-1 font-mono text-xs transition-opacity hover:opacity-80 disabled:opacity-50"
-                style={{ border: '1px solid var(--color-accent)', color: 'var(--color-accent)' }}
+                className="rounded px-3 py-1 text-sm transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{ border: '1.5px solid var(--color-accent)', color: 'var(--color-accent)' }}
               >
                 {measuring ? 'measuring…' : growth ? 're-run' : 'prove it →'}
               </button>
@@ -245,7 +245,7 @@ export function App() {
       <div className="rounded-lg px-4 py-3" style={{ border: '1px solid var(--color-hairline)', background: 'var(--color-panel)' }}>
         <button
           onClick={() => setExamplesOpen((v) => !v)}
-          className="flex w-full items-center justify-between font-mono text-xs uppercase tracking-widest"
+          className="flex w-full items-center justify-between text-sm uppercase"
           style={{ color: 'var(--color-dim)' }}
         >
           example library · {EXAMPLES.length} patterns
@@ -301,7 +301,7 @@ export function App() {
       {compiled.ok && view === 'nfa' && input !== '' && nfaViz && traced && pb && (
         <div className="flex flex-col gap-3">
           <div className="rounded-lg px-4 py-2" style={{ border: '1px solid var(--color-hairline)', background: 'var(--color-panel)' }}>
-            <div className="mb-1 text-[10px] uppercase tracking-widest" style={{ color: 'var(--color-faint)' }}>
+            <div className="mb-1 text-xs uppercase" style={{ color: 'var(--color-faint)' }}>
               input · playhead
             </div>
             <InputStrip
@@ -339,7 +339,7 @@ export function App() {
                 key={m}
                 disabled={disabled}
                 onClick={() => setView(m)}
-                className="relative px-4 py-1.5 font-mono text-xs uppercase tracking-wider transition-opacity disabled:cursor-not-allowed"
+                className="relative px-4 py-1.5 text-sm uppercase transition-opacity disabled:cursor-not-allowed"
                 style={{ opacity: disabled ? 0.55 : 1 }}
               >
                 {active && (

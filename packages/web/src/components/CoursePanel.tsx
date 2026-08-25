@@ -74,8 +74,8 @@ export function CoursePanel({
         <div className="px-5 pt-7 pb-5 sm:px-8" style={{ borderBottom: '1px solid var(--color-hairline)' }}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold tracking-tight">Learn regex</h2>
-              <p className="mt-1 text-[13px] leading-snug" style={{ color: 'var(--color-body)' }}>
+              <h2 className="font-display text-3xl font-bold leading-tight">Learn regex</h2>
+              <p className="mt-1 text-[16px] leading-snug" style={{ color: 'var(--color-body)' }}>
                 Five modules. Every lesson ends in the playground, because reading about backtracking is nothing like watching it rewind.
               </p>
             </div>
@@ -95,7 +95,7 @@ export function CoursePanel({
                 style={{ width: `${(done.size / total) * 100}%`, background: 'var(--color-accent)' }}
               />
             </div>
-            <span className="font-mono text-[11px] tabular-nums" style={{ color: 'var(--color-faint)' }}>
+            <span className="font-mono text-[14px] tabular-nums" style={{ color: 'var(--color-faint)' }}>
               {done.size}/{total}
             </span>
           </div>
@@ -106,11 +106,11 @@ export function CoursePanel({
           {COURSE.map((mod, mi) => (
             <section key={mod.id} className="mb-10">
               <header className="mb-4">
-                <div className="font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-accent)' }}>
+                <div className="text-sm uppercase" style={{ color: 'var(--color-accent)' }}>
                   module {mi + 1} · {mod.lessons.length} lessons
                 </div>
-                <h3 className="mt-1 text-[15px] font-semibold tracking-tight">{mod.title}</h3>
-                <p className="mt-1 text-[12px]" style={{ color: 'var(--color-faint)' }}>
+                <h3 className="mt-1 font-display text-2xl font-semibold leading-snug">{mod.title}</h3>
+                <p className="mt-1 text-[15px]" style={{ color: 'var(--color-faint)' }}>
                   {mod.blurb}
                 </p>
               </header>
@@ -132,7 +132,7 @@ export function CoursePanel({
             </section>
           ))}
 
-          <p className="pb-4 text-center text-[11px]" style={{ color: 'var(--color-faint)' }}>
+          <p className="pb-4 text-center text-[14px]" style={{ color: 'var(--color-faint)' }}>
             That's the whole course. Break patterns on purpose now — the machine will show you what happens.
           </p>
         </div>
@@ -185,7 +185,7 @@ function LessonCard({
           {number}
         </span>
         <span
-          className="flex-1 text-[13px]"
+          className="flex-1 text-[16px]"
           style={{ color: open ? 'var(--color-ink)' : 'var(--color-dim)', fontWeight: open ? 600 : 400 }}
         >
           {lesson.title}
@@ -208,7 +208,7 @@ function LessonCard({
         <div className="mx-auto flex max-w-[54ch] flex-col gap-5 px-5 pb-7 pt-1 sm:px-6">
           {/* objective as a lead */}
           <p
-            className="pl-3 text-[13px] leading-relaxed"
+            className="pl-3 text-[16px] leading-relaxed"
             style={{ borderLeft: '2px solid var(--color-accent)', color: 'var(--color-ink)' }}
           >
             {lesson.objective}
@@ -217,7 +217,7 @@ function LessonCard({
           {/* concepts as prose */}
           <div className="flex flex-col gap-3.5">
             {lesson.concepts.map((c, i) => (
-              <p key={i} className="text-[13px] leading-[1.75]" style={{ color: 'var(--color-body)' }}>
+              <p key={i} className="text-[16px] leading-[1.75]" style={{ color: 'var(--color-body)' }}>
                 {c}
               </p>
             ))}
@@ -225,21 +225,21 @@ function LessonCard({
 
           {lesson.exercise && (
             <div className="rounded-lg p-4" style={{ background: 'var(--color-canvas)', borderLeft: '2px solid var(--color-capture)' }}>
-              <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-capture)' }}>
+              <div className="mb-2 text-sm uppercase" style={{ color: 'var(--color-capture)' }}>
                 hands-on
               </div>
               <code
-                className="block break-all rounded px-2 py-1.5 font-mono text-[12px]"
+                className="block break-all rounded px-2 py-1.5 font-mono text-[14px]"
                 style={{ background: 'var(--color-panel)', color: 'var(--color-ink)' }}
               >
                 /{lesson.exercise.pattern}/{lesson.exercise.flags ?? ''} · {JSON.stringify(lesson.exercise.input)}
               </code>
-              <p className="mt-3 text-[13px] leading-relaxed" style={{ color: 'var(--color-body)' }}>
+              <p className="mt-3 text-[16px] leading-relaxed" style={{ color: 'var(--color-body)' }}>
                 {lesson.exercise.watch}
               </p>
               <button
                 onClick={() => onLoadExercise(lesson.exercise!)}
-                className="mt-3 rounded-md px-3.5 py-1.5 font-mono text-[12px] font-semibold transition-opacity hover:opacity-85"
+                className="mt-3 rounded-md px-3.5 py-1.5 font-mono text-[14px] font-semibold transition-opacity hover:opacity-85"
                 style={{ background: 'var(--color-accent)', color: '#15171e' }}
               >
                 load in playground →
@@ -251,7 +251,7 @@ function LessonCard({
           <div className="flex flex-col gap-4">
             {lesson.quiz.map((q, qi) => (
               <div key={qi}>
-                <p className="mb-2 text-[13px] font-medium" style={{ color: 'var(--color-ink)' }}>
+                <p className="mb-2 text-[16px] font-medium" style={{ color: 'var(--color-ink)' }}>
                   {q.q}
                 </p>
                 <div className="flex flex-col gap-1.5">
@@ -277,7 +277,7 @@ function LessonCard({
                         key={oi}
                         onClick={() => setAnswers((a) => ({ ...a, [qi]: oi }))}
                         disabled={revealed && isChosen}
-                        className="rounded-lg px-3 py-2 text-left font-mono text-[12px] transition-colors hover:bg-white/5"
+                        className="rounded-lg px-3 py-2 text-left font-mono text-[14px] transition-colors hover:bg-white/5"
                         style={{ background: bg, color, border: `1px solid ${borderColor}` }}
                       >
                         {revealed && correct ? '✓ ' : isChosen ? '✗ ' : ''}
@@ -293,7 +293,7 @@ function LessonCard({
           <button
             onClick={onComplete}
             disabled={(!allCorrect && !done)}
-            className="self-start rounded-lg px-3.5 py-1.5 font-mono text-[12px] transition-opacity disabled:cursor-not-allowed disabled:opacity-40 hover:opacity-80"
+            className="self-start rounded-lg px-3.5 py-1.5 font-mono text-[14px] transition-opacity disabled:cursor-not-allowed disabled:opacity-40 hover:opacity-80"
             style={
               done
                 ? { border: '1px solid rgba(242,178,62,0.45)', color: 'var(--color-accent)', background: 'rgba(242,178,62,0.08)' }
